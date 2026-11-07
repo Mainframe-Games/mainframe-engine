@@ -105,11 +105,26 @@ internal static class RecastBaker
 
         var parameters = new DtNavMeshCreateParams
         {
-            verts = poly.verts, vertCount = poly.nverts, polys = poly.polys, polyAreas = poly.areas, polyFlags = poly.flags,
-            polyCount = poly.npolys, nvp = poly.nvp, detailMeshes = detail?.meshes, detailVerts = detail?.verts,
-            detailVertsCount = detail?.nverts ?? 0, detailTris = detail?.tris, detailTriCount = detail?.ntris ?? 0,
-            walkableHeight = mesh.AgentHeight, walkableRadius = mesh.AgentRadius, walkableClimb = mesh.AgentMaxClimb,
-            bmin = poly.bmin, bmax = poly.bmax, cs = config.Cs, ch = config.Ch, buildBvTree = true,
+            verts = poly.verts,
+            vertCount = poly.nverts,
+            polys = poly.polys,
+            polyAreas = poly.areas,
+            polyFlags = poly.flags,
+            polyCount = poly.npolys,
+            nvp = poly.nvp,
+            detailMeshes = detail?.meshes,
+            detailVerts = detail?.verts,
+            detailVertsCount = detail?.nverts ?? 0,
+            detailTris = detail?.tris,
+            detailTriCount = detail?.ntris ?? 0,
+            walkableHeight = mesh.AgentHeight,
+            walkableRadius = mesh.AgentRadius,
+            walkableClimb = mesh.AgentMaxClimb,
+            bmin = poly.bmin,
+            bmax = poly.bmax,
+            cs = config.Cs,
+            ch = config.Ch,
+            buildBvTree = true,
         };
         var data = DtNavMeshBuilder.CreateNavMeshData(parameters);
         if (data is null)
@@ -245,12 +260,12 @@ internal static class RecastBaker
                     Solid(t, sphere.Radius, 0f, 0f);
                     break;
                 case CapsuleShape3D capsule:
-                {
-                    var half = MathF.Max(0f, capsule.Height * 0.5f - capsule.Radius);
-                    Capsule(capsule.Radius, half, t);
-                    Solid(t, capsule.Radius, half, half);
-                    break;
-                }
+                    {
+                        var half = MathF.Max(0f, capsule.Height * 0.5f - capsule.Radius);
+                        Capsule(capsule.Radius, half, t);
+                        Solid(t, capsule.Radius, half, half);
+                        break;
+                    }
                 case CylinderShape3D cylinder:
                     Cylinder(cylinder.Radius, cylinder.Height * 0.5f, t);
                     Solid(t, cylinder.Radius, cylinder.Height * 0.5f, cylinder.Height * 0.5f);
@@ -259,19 +274,19 @@ internal static class RecastBaker
                     Hull(convex.Points, t);
                     break;
                 case ConcavePolygonShape3D concave:
-                {
-                    var faces = concave.Faces;
-                    for (var i = 0; i + 2 < faces.Length; i += 3)
-                        Triangle(faces[i], faces[i + 1], faces[i + 2], t);
-                    break;
-                }
+                    {
+                        var faces = concave.Faces;
+                        for (var i = 0; i + 2 < faces.Length; i += 3)
+                            Triangle(faces[i], faces[i + 1], faces[i + 2], t);
+                        break;
+                    }
                 case HeightMapShape3D map:
-                {
-                    var faces = map.GetFaces();
-                    for (var i = 0; i + 2 < faces.Length; i += 3)
-                        Triangle(faces[i], faces[i + 1], faces[i + 2], t);
-                    break;
-                }
+                    {
+                        var faces = map.GetFaces();
+                        for (var i = 0; i + 2 < faces.Length; i += 3)
+                            Triangle(faces[i], faces[i + 1], faces[i + 2], t);
+                        break;
+                    }
             }
         }
 
@@ -455,29 +470,29 @@ internal static class RecastBaker
             if (n < 4 || n > 128)
                 return;
             for (var i = 0; i < n; i++)
-            for (var j = i + 1; j < n; j++)
-            for (var k = j + 1; k < n; k++)
-            {
-                var normal = Vector3.Cross(points[j] - points[i], points[k] - points[i]);
-                if (normal.LengthSquared() < 1e-12f)
-                    continue;
-                bool above = false, below = false;
-                for (var m = 0; m < n && !(above && below); m++)
-                {
-                    var d = Vector3.Dot(normal, points[m] - points[i]);
-                    if (d > 1e-5f)
-                        above = true;
-                    else if (d < -1e-5f)
-                        below = true;
-                }
+                for (var j = i + 1; j < n; j++)
+                    for (var k = j + 1; k < n; k++)
+                    {
+                        var normal = Vector3.Cross(points[j] - points[i], points[k] - points[i]);
+                        if (normal.LengthSquared() < 1e-12f)
+                            continue;
+                        bool above = false, below = false;
+                        for (var m = 0; m < n && !(above && below); m++)
+                        {
+                            var d = Vector3.Dot(normal, points[m] - points[i]);
+                            if (d > 1e-5f)
+                                above = true;
+                            else if (d < -1e-5f)
+                                below = true;
+                        }
 
-                if (above && below)
-                    continue;
-                if (above)
-                    Triangle(points[i], points[k], points[j], t); // flip so the normal points out
-                else
-                    Triangle(points[i], points[j], points[k], t);
-            }
+                        if (above && below)
+                            continue;
+                        if (above)
+                            Triangle(points[i], points[k], points[j], t); // flip so the normal points out
+                        else
+                            Triangle(points[i], points[j], points[k], t);
+                    }
         }
     }
 }
