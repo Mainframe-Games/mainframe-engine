@@ -127,7 +127,7 @@ float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
     float3 R = reflect(-V, N);
     R.y = abs(R.y); // ripples never reflect the ground below the horizon
     float2 brdf = iblBrdf(NdotV, roughness);
-    float3 reflected = iblSpecular(R, roughness);
+    float3 reflected = waterSkyReflection(P, N, Ng, V, R, roughness); // ADR 0279: the probes' sky on SSR misses
     if (waterScene.caustics.w > 0.0)
     {
         float3 viewR = normalize(mul(float4(R, 0.0), frame.view).xyz);

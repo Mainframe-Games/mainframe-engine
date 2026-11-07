@@ -28,7 +28,7 @@ float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
     float3 R = reflect(-V, N);
     R.y = abs(R.y); // ripples never reflect the ground below the horizon
     float2 brdf = iblBrdf(NdotV, roughness);
-    float3 reflection = iblSpecular(R, roughness) * (kWaterF0 * brdf.x + brdf.y) * waterReflectionStrength();
+    float3 reflection = waterSkyReflection(P, N, Ng, V, R, roughness) * (kWaterF0 * brdf.x + brdf.y) * waterReflectionStrength();
     float sunShadow;
     float3 glints = waterLights(N, Ng, V, P, roughness, sunShadow);
 
