@@ -123,8 +123,8 @@ public sealed class ProjectService : IDisposable
 
     /// <summary>
     /// Opens the project in <paramref name="directory"/>: settings, asset database, recent list, watchers, then the
-    /// game code — loaded at once when built, else built first (<paramref name="onReady"/> runs when the code is loaded
-    /// or there is none). The caller closes the previous project's scenes first. Throws for an invalid project.
+    /// game code — loaded at once when built and newer than its sources, else built first (<paramref name="onReady"/>
+    /// runs when the code is loaded or there is none). The caller closes the previous project's scenes first. Throws for an invalid project.
     /// </summary>
     public void Open(string directory, Action? onReady = null)
     {
@@ -150,37 +150,55 @@ public sealed class ProjectService : IDisposable
             return;
         }
 
+        var library = Path.GetFileName(GameLibraryProject);
         var output = GameAssemblyLoader.FindBuildOutput(GameLibraryProject);
         if (output is null)
         {
-            Log.Info($"[Project] {Path.GetFileName(GameLibraryProject)} has not been built yet; building it.");
-            Build(GameLibraryProject, result =>
-            {
-                if (result.Succeeded)
-                    LoadGameAssembly();
-                onReady?.Invoke();
-            });
+            Log.Info($"[Project] {library} has not been built yet; building it.");
+            BuildThenLoad(GameLibraryProject, staleFallback: false, onReady);
+            return;
+        }
+
+        if (SourcesNewerThan(output))
+        {
+            // A pull or branch switch since the last build: scenes opened with the old code can fail on what it expects.
+            Log.Info($"[Project] The game's sources changed since its last build; building {library} first.");
+            BuildThenLoad(GameLibraryProject, staleFallback: true, onReady);
             return;
         }
 
         if (!LoadGameAssembly())
         {
             // Typically a build made against another engine version: rebuild it once, then load.
-            Log.Info($"[Project] Rebuilding {Path.GetFileName(GameLibraryProject)}.");
-            Build(GameLibraryProject, result =>
-            {
-                if (result.Succeeded)
-                    LoadGameAssembly();
-                onReady?.Invoke();
-            });
+            Log.Info($"[Project] Rebuilding {library}.");
+            BuildThenLoad(GameLibraryProject, staleFallback: false, onReady);
             return;
         }
 
-        NeedsRebuild = SourcesNewerThan(output);
-        if (NeedsRebuild)
-            Log.Info("[Project] The game's sources changed since its last build: Build & Reload to use them.");
         onReady?.Invoke();
     }
+
+    // Builds the game library, then loads it. With staleFallback, a failed build still loads the previous build (older
+    // than the sources: NeedsRebuild stays set) so the project opens with its game types rather than missing nodes.
+    private void BuildThenLoad(string project, bool staleFallback, Action? onReady) =>
+        Build(project, result =>
+        {
+            if (result.Succeeded)
+            {
+                LoadGameAssembly();
+            }
+            else if (staleFallback)
+            {
+                Log.Warning("[Project] The build failed; the previous build of the game code is loaded until it builds.");
+                if (LoadGameAssembly())
+                {
+                    NeedsRebuild = true;
+                    Changed?.Invoke();
+                }
+            }
+
+            onReady?.Invoke();
+        });
 
     /// <summary>The main scene's file (<c>mainScene</c>: a UID or a <c>Assets/</c> path), or null.</summary>
     public string? MainScenePath()

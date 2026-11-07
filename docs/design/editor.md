@@ -788,8 +788,9 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   `DemoDownloadsDirectory`.
 - **`ProjectService`** opens a project: `EditorSession.OpenProject` (the asset database scans `Assets/` and creates
   missing `.mfmeta` sidecars), `GameProjectLayout` finds the game library, desktop project (or a legacy `*.Launcher`) and solution, and the game assembly
-  loads into a collectible `AssemblyLoadContext` (`GameAssemblyLoader`), built first when it is missing or fails to
-  load. Its node and resource types join the create dialog, the inspector and `[CustomInspector]` discovery.
+  loads into a collectible `AssemblyLoadContext` (`GameAssemblyLoader`), built first when it is missing, older than its
+  sources (a pull or branch switch since the last build: the scenes would open with the old code) or fails to load. When
+  that build of stale code fails, the previous build loads and "rebuild needed" stays on. Its node and resource types join the create dialog, the inspector and `[CustomInspector]` discovery.
 - **Code reload**: a debounced watcher on the build output reloads after any build (the editor's Build & Reload, F5,
   or an IDE's); a watcher on the sources shows "rebuild needed". Only scenes that use game code (`GameCodeScanner`:
   game or missing node/resource types, nested resources included) are serialized (unsaved edits included), freed, the

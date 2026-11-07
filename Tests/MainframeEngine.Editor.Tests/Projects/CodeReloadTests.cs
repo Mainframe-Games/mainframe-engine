@@ -322,4 +322,66 @@ public sealed class CodeReloadTests : IDisposable
         var wobbler = Assert.Single(w.Session.Scenes).Root.GetNode("W");
         Assert.NotNull(TypeRegistry.GetNearest(wobbler.GetType())!.FindProperty("Amplitude"));
     }
+
+    [Fact]
+    public void OpeningAProjectBuildsGameCodeOlderThanItsSourcesBeforeOpeningScenes()
+    {
+        var builder = StaleBuild(() => GameCompiler.Compile(GameV2, Name, _output), succeeds: true);
+        var w = OpenUntilLoaded(builder).Workspace;
+
+        Assert.Equal(1, builder.Calls);
+        Assert.False(w.Project.NeedsRebuild);
+        var wobbler = Assert.Single(w.Session.Scenes).Root.GetNode("W");
+        Assert.NotNull(TypeRegistry.GetNearest(wobbler.GetType())!.FindProperty("Amplitude"));
+    }
+
+    [Fact]
+    public void AFailedBuildOfStaleGameCodeStillLoadsThePreviousBuild()
+    {
+        var builder = StaleBuild(() => { }, succeeds: false);
+        var w = OpenUntilLoaded(builder).Workspace;
+
+        Assert.Equal(1, builder.Calls);
+        Assert.True(w.Project.NeedsRebuild);
+        var wobbler = Assert.Single(w.Session.Scenes).Root.GetNode("W");
+        Assert.Equal("Wobbler", wobbler.GetType().Name);
+        Assert.Null(TypeRegistry.GetNearest(wobbler.GetType())!.FindProperty("Amplitude"));
+    }
+
+    // GameV1 built, then a source edited after that build (a pull or branch switch); building runs `build`.
+    private CallbackGameBuilder StaleBuild(Action build, bool succeeds)
+    {
+        var dll = GameCompiler.Compile(GameV1, Name, _output);
+        var source = Path.Combine(_project, Name, "Wobbler.cs");
+        File.WriteAllText(source, GameV2);
+        File.SetLastWriteTimeUtc(source, File.GetLastWriteTimeUtc(dll).AddMinutes(1));
+        return new CallbackGameBuilder(build, succeeds);
+    }
+
+    private HeadlessEditor OpenUntilLoaded(IGameBuilder builder)
+    {
+        _editor = new HeadlessEditor(configure: o => o with { InitialProject = _project, GameBuilder = builder });
+        var w = _editor.Workspace;
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while ((!w.Project.IsGameLoaded || w.Session.Scenes.Count == 0) && DateTime.UtcNow < deadline)
+        {
+            _editor.Tick();
+            Thread.Sleep(10);
+        }
+
+        Assert.True(w.Project.IsGameLoaded);
+        return _editor;
+    }
+
+    private sealed class CallbackGameBuilder(Action build, bool succeeds) : IGameBuilder
+    {
+        public int Calls { get; private set; }
+
+        public Task<GameBuildResult> BuildAsync(string projectOrSolutionPath, Action<string>? onLine, CancellationToken cancellationToken)
+        {
+            Calls++;
+            build();
+            return Task.FromResult(new GameBuildResult(succeeds, [], TimeSpan.Zero, false, null, [succeeds ? "Build succeeded." : "Build FAILED."]));
+        }
+    }
 }
