@@ -128,7 +128,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `World2D`, synced after each fixed step), `Nodes2D/` (`NavigationGrid2D` + `NavigationGridData`, `NavigationAgent2D`),
   `Baking/` (`INavigationGridBaker` seam, the physics baker through queries only, `TileMapLayerBaker`: live grids from a
   `TileMapLayer`, G3.6), `Avoidance/` (G3.7, ADR 0250: `Orca2D`, an RVO2 port under Apache-2.0 with
-  `LICENSE-RVO2.txt`, and the per-map `AvoidanceSimulation2D`) with `Nodes2D/NavigationObstacle2D`; see `docs/design/navigation.md`
+  `LICENSE-RVO2.txt`, and the per-map `AvoidanceSimulation2D`) with `Nodes2D/NavigationObstacle2D`; `Polygons/` (G3.9, ADR 0261:
+  `NavigationPolygon`, the Clipper2 bake and own convex `PolygonPartition`, the map's `NavMesh2D` + `NavMeshSearch`: polygon
+  A* and the funnel) with `Nodes2D/NavigationRegion2D`, `NavigationLink2D` and `Baking/NavigationPolygonBaker2D`; see `docs/design/navigation.md`
 - `MainframeEngine/Src/Animation/` — `Animation` (transform, value, bezier, method, audio and event tracks; cubic, transitions),
   `AnimationLibrary`, `AnimationPlayer` (ADRs 0207, 0244), `PropertyBinding`/`AnimationValueOps` (typed property writes),
   `[AnimationMethod]` (generated invokers, MFG011);

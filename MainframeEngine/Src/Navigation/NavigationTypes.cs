@@ -56,13 +56,13 @@ public enum GridPathStatus : byte
 /// <summary>How a navigation path is simplified after the search (Godot's <c>NavigationPathQueryParameters2D.PathPostProcessing</c>).</summary>
 public enum NavigationPathPostprocessing : byte
 {
-    /// <summary>Grids: only the cells needed for line of sight (string pulling). Navmeshes (later): the funnel algorithm.</summary>
+    /// <summary>Grids: only the cells needed for line of sight (string pulling). Navigation meshes: the funnel algorithm.</summary>
     CorridorFunnel,
 
-    /// <summary>Grids: the corners of the cell path (collinear cells removed).</summary>
+    /// <summary>Grids: the corners of the cell path (collinear cells removed). Navigation meshes: the middle of each portal.</summary>
     EdgeCentered,
 
-    /// <summary>Every cell centre of the path.</summary>
+    /// <summary>Grids: every cell centre of the path. Navigation meshes: each polygon's entry point.</summary>
     None,
 }
 
@@ -85,6 +85,16 @@ public enum NavigationGridSource : byte
 /// <param name="Cell">The grid cell behind it.</param>
 public readonly record struct NavigationWaypoint2D(Vector2 Position, int Index, Vector2I Cell);
 
+/// <summary>
+/// G3.9: a <see cref="NavigationAgent2D"/> reached the entry of a <see cref="NavigationLink2D"/> on its path (Godot's
+/// <c>link_reached</c> details, as a struct). The game moves the body to <paramref name="ExitPosition"/> (a jump, a teleport).
+/// </summary>
+/// <param name="Link">The link.</param>
+/// <param name="Index">The entry's index in the agent's current path (the exit is the next point).</param>
+/// <param name="EntryPosition">Where the path enters the link (pixels).</param>
+/// <param name="ExitPosition">Where it leaves it.</param>
+public readonly record struct NavigationLinkReached2D(NavigationLink2D Link, int Index, Vector2 EntryPosition, Vector2 ExitPosition);
+
 /// <summary>A path query against a <see cref="NavigationMap2D"/>.</summary>
 /// <param name="Start">Where the path starts (pixels).</param>
 /// <param name="Target">Where it should end (pixels).</param>
@@ -101,10 +111,10 @@ public readonly record struct NavigationPathQuery2D(Vector2 Start, Vector2 Targe
 /// </summary>
 public static class NavigationDebugColors
 {
-    /// <summary>The region's outline.</summary>
+    /// <summary>A grid region's outline; a navigation mesh's borders.</summary>
     public static Vector4 Region { get; set; } = new(0.25f, 0.75f, 0.95f, 0.9f);
 
-    /// <summary>The cell lines inside a region.</summary>
+    /// <summary>The cell lines inside a grid region; a navigation mesh's inner polygon edges.</summary>
     public static Vector4 CellLines { get; set; } = new(0.25f, 0.75f, 0.95f, 0.18f);
 
     /// <summary>Solid cells (outline and cross).</summary>
@@ -127,4 +137,10 @@ public static class NavigationDebugColors
 
     /// <summary>An avoidance obstacle's radius and polygon (G3.7).</summary>
     public static Vector4 Obstacle { get; set; } = new(1f, 0.6f, 0.25f, 0.95f);
+
+    /// <summary>An edge connection between two navigation mesh regions (G3.9).</summary>
+    public static Vector4 EdgeConnection { get; set; } = new(0.7f, 0.5f, 1f, 0.95f);
+
+    /// <summary>A navigation link (G3.9; faded while one of its ends finds no polygon).</summary>
+    public static Vector4 Link { get; set; } = new(0.35f, 0.9f, 0.75f, 1f);
 }

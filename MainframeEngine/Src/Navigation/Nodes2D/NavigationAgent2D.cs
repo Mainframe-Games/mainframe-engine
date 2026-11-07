@@ -65,7 +65,7 @@ public class NavigationAgent2D : Node
     [Export(Flags = true)]
     public uint NavigationLayers { get; set; } = 1;
 
-    /// <summary>How the cell path is simplified.</summary>
+    /// <summary>How the path is simplified (grids: line of sight; navigation meshes: the funnel).</summary>
     [Export]
     public NavigationPathPostprocessing PathPostprocessing { get; set; } = NavigationPathPostprocessing.CorridorFunnel;
 
@@ -78,6 +78,12 @@ public class NavigationAgent2D : Node
 
     /// <summary>The agent came within <see cref="PathDesiredDistance"/> of a path point.</summary>
     [Signal] public event Action<NavigationWaypoint2D>? WaypointReached;
+
+    /// <summary>
+    /// G3.9: the agent reached the entry of a <see cref="NavigationLink2D"/> (after its <see cref="WaypointReached"/>); the
+    /// next path point is the link's exit. Move the body across (a jump, a teleport) — the agent moves nothing.
+    /// </summary>
+    [Signal] public event Action<NavigationLinkReached2D>? LinkReached;
 
     /// <summary>The agent came within <see cref="TargetDesiredDistance"/> of the target (once per target).</summary>
     [Signal] public event Action? TargetReached;
@@ -318,6 +324,8 @@ public class NavigationAgent2D : Node
         while (_index < _path.Count && Vector2.Distance(origin, _path.Points[_index]) < PathDesiredDistance)
         {
             WaypointReached?.Invoke(new NavigationWaypoint2D(_path.Points[_index], _index, _path.Cells[_index]));
+            if (_index + 1 < _path.Count && _path.Owners[_index] is NavigationLink2D link && ReferenceEquals(_path.Owners[_index + 1], link))
+                LinkReached?.Invoke(new NavigationLinkReached2D(link, _index, _path.Points[_index], _path.Points[_index + 1]));
             if (_index == _path.Count - 1)
             {
                 _lastWaypointReached = true;
