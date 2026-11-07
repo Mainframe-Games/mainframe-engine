@@ -213,6 +213,25 @@ public class PostProcessProfile : Resource
         set => Set(_settings with { GlowQuality = value });
     }
 
+    /// <summary>
+    /// Godot's <c>glow_map</c> (G8e.4, ADR 0277): the glow is multiplied by this texture, stretched over the screen —
+    /// lens dirt that lights up where bright light blooms. Null: none.
+    /// </summary>
+    [Export]
+    public Texture2D? GlowMap
+    {
+        get => _settings.GlowMap;
+        set => Set(_settings with { GlowMap = value });
+    }
+
+    /// <summary>Godot's <c>glow_map_strength</c>: how much of the glow map applies (0.8; 0 = none).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float GlowMapStrength
+    {
+        get => _settings.GlowMapStrength;
+        set => Set(_settings with { GlowMapStrength = value });
+    }
+
     /// <summary>Weight of the half-resolution blur level (Godot's <c>glow_levels/1</c>).</summary>
     [Export(Range = "0,16,0.01")]
     public float GlowLevel1
@@ -529,7 +548,7 @@ public class PostProcessProfile : Resource
         nameof(AutoExposureMode), nameof(AutoExposureLowPercent), nameof(AutoExposureHighPercent), nameof(AutoExposureHistogramLogMin),
         nameof(AutoExposureHistogramLogMax), nameof(AutoExposureMetering), nameof(AutoExposureHighlightProtection),
         nameof(AutoExposureHighlightPercent), nameof(AutoExposureHighlightWhite),
-        nameof(GlowEnabled), nameof(GlowQuality), nameof(GlowLevel1), nameof(GlowLevel2), nameof(GlowLevel3), nameof(GlowLevel4),
+        nameof(GlowEnabled), nameof(GlowQuality), nameof(GlowMap), nameof(GlowMapStrength), nameof(GlowLevel1), nameof(GlowLevel2), nameof(GlowLevel3), nameof(GlowLevel4),
         nameof(GlowLevel5), nameof(GlowLevel6), nameof(GlowLevel7), nameof(GlowNormalized), nameof(GlowIntensity), nameof(GlowStrength),
         nameof(GlowMix), nameof(GlowBloom), nameof(GlowBlendMode), nameof(GlowHdrThreshold), nameof(GlowHdrScale), nameof(GlowHdrLuminanceCap),
         nameof(LightShaftsEnabled), nameof(LightShaftsIntensity), nameof(LightShaftsDecay), nameof(LightShaftsDensity), nameof(LightShaftsSamples),

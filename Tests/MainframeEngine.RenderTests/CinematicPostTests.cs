@@ -222,6 +222,31 @@ public class CinematicPostTests
     }
 
     [Fact]
+    public void AGlowMapMasksTheGlow()
+    {
+        // G8e.4 (ADR 0277): Godot's glow_map at strength 1, black on the left half, white on the right: the glow beside the
+        // emitter survives on the right and is gone on the left.
+        var mapped = HostRunner.Run("glow", Output("glow-map"), "--capture", "6", "--count", "5", "--hidden");
+        var on = HostRunner.Run("glow", Output("glow-map-on"), "--capture", "6", "--hidden");
+        var off = HostRunner.Run("glow", Output("glow-map-off"), "--capture", "6", "--count", "1", "--hidden");
+        Gates.AssertValidationClean(mapped);
+        Gates.AssertMatchesGolden(mapped, 6, goldenFile: "glow-map_frame0006.png");
+        var image = Capture(mapped, 6);
+        var plain = Capture(off, 6);
+        var full = Capture(on, 6);
+        int w = image.Width, h = image.Height;
+        var right = (w / 2 + h / 10, h / 2);
+        var left = (w / 2 - h / 10, h / 2);
+        var rightGain = Luminance(image, right) - Luminance(plain, right);
+        var leftGain = Luminance(image, left) - Luminance(plain, left);
+        var fullGain = Luminance(full, left) - Luminance(plain, left);
+        TestContext.Current.SendDiagnosticMessage($"Glow map: gain right {rightGain:F1}, left {leftGain:F1} (without the map {fullGain:F1})");
+        Assert.True(fullGain > 8f, $"the scene has no glow to mask ({fullGain})");
+        Assert.True(rightGain > 8f, $"the white half lost the glow (gain {rightGain})");
+        Assert.True(leftGain <= 2f, $"the black half kept the glow (gain {leftGain})");
+    }
+
+    [Fact]
     public void TheCinematicChainAllocatesNothingPerFrame()
     {
         // Far and near depth of field, AgX, high-quality glow, adjustments, a LUT, vignette, grain, aberration and FXAA,

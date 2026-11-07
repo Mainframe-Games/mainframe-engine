@@ -150,6 +150,15 @@ public readonly record struct PostProcessSettings
     public GlowQuality GlowQuality { get; init; } = GlowQuality.Standard;
 
     /// <summary>
+    /// Godot's <c>glow_map</c> (G8e.4, ADR 0277): a texture the glow is multiplied by, stretched over the screen, for lens
+    /// dirt. Null: none.
+    /// </summary>
+    public Texture2D? GlowMap { get; init; }
+
+    /// <summary>Godot's <c>glow_map_strength</c> (0.8): how much of the glow map's colour applies (0 = none, 1 = all).</summary>
+    public float GlowMapStrength { get; init; } = 0.8f;
+
+    /// <summary>
     /// Colour adjustments after the tonemap (Godot's <c>adjustment_enabled</c>): brightness, contrast, saturation and the
     /// colour-correction LUT, applied to the display-encoded image (ADR 0168).
     /// </summary>

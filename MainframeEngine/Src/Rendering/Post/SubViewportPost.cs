@@ -437,6 +437,7 @@ internal sealed unsafe class PostTonemapPass : IDisposable
     private readonly PipelineLayout _layout;
     private readonly Pipeline _pipeline;
     private readonly Sampler _sceneSampler;
+    private readonly GlowMapSets _glowMap;
     private DescriptorSet _set;
     private DescriptorSet _shaftsSet;
 
@@ -453,7 +454,8 @@ internal sealed unsafe class PostTonemapPass : IDisposable
         ], "sub-viewport post tonemap");
         _pool = PipelineBuilder.CreatePool(ctx, 2,
             [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 2 * (3 + GlowEffect.LevelCount) }], "sub-viewport post tonemap");
-        _layout = PipelineBuilder.CreateLayout(ctx, [_setLayout], (uint)sizeof(PostPush), ShaderStageFlags.FragmentBit, "sub-viewport post tonemap");
+        _glowMap = new GlowMapSets(ctx, "sub-viewport post tonemap");
+        _layout = PipelineBuilder.CreateLayout(ctx, [_setLayout, _glowMap.Layout], (uint)sizeof(PostPush), ShaderStageFlags.FragmentBit, "sub-viewport post tonemap");
         // Every LDR target (the view's image, the AfterTonemap ping-pong) has the same format: one compatible pipeline.
         _pipeline = PipelineBuilder.Create(ctx, new PipelineState(), _layout, ldrPass,
             "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/TonemapPost.vk.frag.spv", [], [], "sub-viewport post tonemap");
@@ -491,8 +493,11 @@ internal sealed unsafe class PostTonemapPass : IDisposable
 
         var vk = _ctx.Vk;
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
-        var set = shafts > 0f && _shaftsSet.Handle != 0 ? _shaftsSet : _set;
-        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _layout, 0, 1, &set, 0, null);
+        var glowMapStrength = post.GlowMaxLevel >= 0 ? Math.Clamp(post.GlowMapStrength, 0f, 1f) : 0f;
+        var sets = stackalloc DescriptorSet[2];
+        sets[0] = shafts > 0f && _shaftsSet.Handle != 0 ? _shaftsSet : _set;
+        sets[1] = _glowMap.For(_ctx.FrameNumber, post.GlowMap, ref glowMapStrength);
+        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _layout, 0, 2, sets, 0, null);
         var push = new PostPush
         {
             Exposure = exposure,
@@ -506,6 +511,7 @@ internal sealed unsafe class PostTonemapPass : IDisposable
             AutoExposure = post.AutoExposureEnabled ? 1u : 0u,
             AutoExposureScale = post.AutoExposureScale,
             Shafts = _shaftsSet.Handle != 0 ? shafts : 0f,
+            GlowMapStrength = glowMapStrength,
         };
         post.GetGlowWeights(new Span<float>(push.GlowWeights, GlowEffect.LevelCount));
         if (post.GlowQuality == GlowQuality.High)
@@ -555,6 +561,7 @@ internal sealed unsafe class PostTonemapPass : IDisposable
         public uint AutoExposure;
         public float AutoExposureScale;
         public float Shafts;
+        public float GlowMapStrength;
     }
 
     public void Dispose()
@@ -565,5 +572,6 @@ internal sealed unsafe class PostTonemapPass : IDisposable
         deletions.Enqueue(GpuDeletion.Of(_pool));
         deletions.Enqueue(GpuDeletion.Of(_setLayout));
         deletions.Enqueue(GpuDeletion.Of(_sceneSampler));
+        _glowMap.Retire();
     }
 }

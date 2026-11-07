@@ -80,6 +80,20 @@ public sealed class PostProcessProfileTests
     }
 
     [Fact]
+    public void TheGlowMapIsGodotsGlowMapAndStrength()
+    {
+        // G8e.4 (ADR 0277): no map by default, Godot's 0.8 strength; both reach the settings the tonemap reads.
+        var profile = new PostProcessProfile();
+        Assert.Null(profile.GlowMap);
+        Assert.Equal(0.8f, profile.GlowMapStrength);
+        var map = Texture2D.FromPixels(1, 1, [10, 20, 30, 255]);
+        profile.GlowMap = map;
+        profile.GlowMapStrength = 0.5f;
+        Assert.Same(map, profile.Settings.GlowMap);
+        Assert.Equal(0.5f, profile.Settings.GlowMapStrength);
+    }
+
+    [Fact]
     public void ChangingAValueRaisesChangedOnce()
     {
         var profile = new PostProcessProfile();
