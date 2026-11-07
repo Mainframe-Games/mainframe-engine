@@ -131,7 +131,7 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `LICENSE-RVO2.txt`, and the per-map `AvoidanceSimulation2D`) with `Nodes2D/NavigationObstacle2D`; `Polygons/` (G3.9, ADR 0261:
   `NavigationPolygon`, the Clipper2 bake and own convex `PolygonPartition`, the map's `NavMesh2D` + `NavMeshSearch`: polygon
   A* and the funnel) with `Nodes2D/NavigationRegion2D`, `NavigationLink2D` and `Baking/NavigationPolygonBaker2D`;
-  `NavigationQueryWorkers` (G3.10, ADR 0262: `QueryPathAsync` on thread-pool workers, delivered at the next sync); see
+  `NavigationQueryWorkers` (G3.10, ADR 0262: `QueryPathAsync` on worker threads, delivered at the next sync); see
   `docs/design/navigation.md`
 - `MainframeEngine/Src/Animation/` — `Animation` (transform, value, bezier, method, audio and event tracks; cubic, transitions),
   `AnimationLibrary`, `AnimationPlayer` (ADRs 0207, 0244), `PropertyBinding`/`AnimationValueOps` (typed property writes),
