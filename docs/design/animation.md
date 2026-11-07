@@ -290,6 +290,65 @@ The timeline component is shared with the song editor: `TimelineZoom` (scroll, p
 `ZoomAround`), `TimelineSnap`, `TimelineRuler` (adaptive steps, cached labels), `TimelineHost.Place` (sizes the canvas
 `SubViewport` and publishes it) and `TimelineCanvasBase` (ruler, shaded regions, playhead).
 
+## Humanoid map (G1c)
+
+The first step of [animation authoring](future/animation-authoring.md) (G1.12, ADR 0281), in
+`MainframeEngine/Src/Animation/Humanoid/`. It describes any humanoid `Skeleton3D` in one canonical space, so later steps
+(the pose baker, `mfe anim describe`, checks, the editor's sliders) speak one set of angles on every rig.
+
+- **Canonical space:** Y up, +Z forward, +X the character's left; the canonical T-pose is the reference.
+  `HumanoidBone` is VRM 1.0's humanoid set (55 bones); `HumanoidBones` gives each one's parent, side, mirror, direction
+  and joint axes, and which are required (hips, spine, head, and per side the three leg and three arm bones; VRM's set).
+- **Angles:** `JointAngles` (`Flex`, `Abduct`, `Twist`, degrees), composed intrinsically twist → abduct → flex about the
+  bone's joint axes; right-side axes mirror the left ones, so equal numbers are equal motions on both sides; hinges
+  (lower legs, lower arms) flex only. `HipsPose` is an offset in metres plus yaw/pitch/roll. `HumanoidPose` holds a whole
+  body; `HumanoidLimits` the range of every component; `HumanoidPoses` the named poses (`tpose`, `stand`, `rest`).
+- **`HumanoidMap.Detect(skeleton, overrides, out report)`:** names first (prefixes such as `mixamorig:`, `DEF-` and
+  `J_Bip_?_` stripped, side tokens split off, tables for VRM/VRoid, Mixamo, Unreal, Blender/Rigify and generic names;
+  numbered spines become Spine/Chest/UpperChest by depth; twist, IK, roll and end bones are skipped), then the skeleton's
+  shape for what names miss (the hips have two similar chains down and one up; the arms branch where two similar chains
+  go sideways), then the `.mfmeta` `humanoid` overrides
+  ([Asset pipeline](asset-pipeline.md#humanoid-map-overrides-g1c)). The `HumanoidMapReport` lists each entry's source
+  and confidence, unmapped rig bones, missing required bones and notes.
+- **`HumanoidRig(skeleton, map)`:** binds a map to the rest pose. The character frame comes from the rest (ankles to
+  hips is up, right to left upper leg is left), so rigs facing any way, in any unit, map the same. Upper and lower legs
+  and arms are straightened to the T-pose by a shortest-arc rest correction (an A-pose rig takes the same angles as a
+  T-pose rig); every other bone keeps its rest relation to its parent, so feet stay flat and the torso keeps its
+  posture. `ToBoneRotation`/`FromBoneRotation` convert one bone; `ApplyPose`/`ReadPose` a whole body (canonical bones
+  the rig lacks pass their rotation on to the next mapped bone); `RestKind` (T, A, other), `RestArmAngle`,
+  `Proportions` (metres) and `MetresPerUnit` describe the rig.
+- **Singularity:** at abduct ±90° (an arm straight up from the T-pose) twist and flex share an axis; reading the angles
+  back then gives twist 0.
+
+## Pose scripts and baking (G1c)
+
+G1.13 ([animation authoring](future/animation-authoring.md#pose-script)), in `MainframeEngine/Src/Animation/Authoring/`.
+A pose script is JSON: a few key poses in canonical angles, IK pins, arcs and a root mode; `PoseScriptParser.Parse`
+reads it (every error with its JSON path, unknown properties rejected) and `PoseBaker.Bake` turns it into an ordinary
+`Animation`. Scripts are input only: the keys are the truth.
+
+- **Keys:** `t`, a named `pose` (the first key needs one; later keys start from the previous key), `hips`
+  (`x/y/z/yaw/pitch/roll`), `joints` (any of `flex/abduct/twist` per bone; hinges flex only), `mirror` (left to right, or
+  right to left where only the right is given), `ik` (`"pin"`, `"release"`, `{ "pos": [x, y, z] }` in character space) and
+  `ease` (`linear`, `in`, `out`, `inOut` or a number: the `Transitions` value of the segment **after** the key).
+- **Root:** `inPlace` (default) keeps the keys' hips offsets and ignores arcs, with a note; `motion` keeps horizontal
+  offsets and adds arcs, for root motion with `RootMotionBone` = the hips (`PoseBakeResult.HipsBone`).
+- **Arcs** add `4k·u(1−u)` to the keyed hips height between `from` and `to`: `k = g·T²/8` from the project's gravity, or
+  solved so the apex is `height` above take-off (a note when that is more than 25 % off gravity's apex).
+- **IK** (`TwoBoneIk`): the knee or elbow stays in the plane of the hip or shoulder, the target and the pole (knees
+  forward, elbows back, turned with the upper bone's current pose), each bone turns by the shortest arc so the authored
+  twist is kept, a target out of reach straightens the limb towards it (noted). A pin holds the effector's position and
+  rotation from its key to `release`.
+- **Keys written:** at the script's times, a cubic `Rotation3DTrack` per mapped bone that leaves its rest (and every IK
+  chain bone), a `Position3DTrack` for the hips; quaternions kept in one hemisphere. A 60 Hz pass then samples the clip
+  as played (`ClipSampler`) and adds a key to the IK chain (or the hips) at the worst sample where a pin slides or an arc
+  misses by more than 1 cm, until none does; a pin out of reach is noted rather than chased.
+- **`Animation.BakedHash`** is `AnimationHash.Compute` of the keys written. `PoseLibrary.Write` puts the clip into a
+  library `.mfres` (created as the default library) and replaces a clip of that name only when it is an untouched bake,
+  or when told to (`replace`), so hand fixes are never overwritten by accident; it links the library in the model's
+  `.mfmeta` `libraries` ([Asset pipeline](asset-pipeline.md#linked-animation-libraries-g1c)), changing nothing else there,
+  and notes when the baked clip hides an imported clip of the same name.
+
 ## Guide
 
 [Getting started → Animate a character](../getting-started.md#animate-a-character) walks through exporting from
