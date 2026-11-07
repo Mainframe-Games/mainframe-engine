@@ -17,6 +17,12 @@ internal sealed class GridSearch
     private int _heapCount;
     private uint _query;
 
+    /// <summary>The current query's target node (the search's own, so several searches can run on one grid).</summary>
+    public int End;
+
+    /// <summary>Nodes expanded by the current query (for <c>MaxSearchNodes</c>).</summary>
+    public int Expanded;
+
     /// <summary>The node count the arrays hold.</summary>
     public int Capacity => _g.Length;
 

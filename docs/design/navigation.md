@@ -3,8 +3,9 @@
 **Status:** shipped for 2D grids (Gameplay toolkit G3a, G3.1–G3.6; [ADR 0227](../../memory/decisions/0227-grid-navigation-core.md),
 [ADR 0228](../../memory/decisions/0228-navigation-server-agents-and-sources.md)), including the tile map source (G3.6),
 local avoidance (G3.7, [ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md)) and 2D navigation meshes
-(G3.9, [ADR 0261](../../memory/decisions/0261-navigation-meshes-2d.md)). G3.8 (grid polish) closed as not needed (the owner
-agreed): its conditions did not arise. Async queries and 3D (G3.10–G3.12) are still a [proposal](future/navigation.md).
+(G3.9, [ADR 0261](../../memory/decisions/0261-navigation-meshes-2d.md)) and async queries (G3.10,
+[ADR 0262](../../memory/decisions/0262-navigation-async-queries.md)). G3.8 (grid polish) closed as not needed (the owner
+agreed): its conditions did not arise. 3D (G3.11–G3.12) is still a [proposal](future/navigation.md).
 
 Godot 4's navigation API on grids: `AStarGrid2D` and the point graphs `AStar2D`/`AStar3D` (plain classes, usable without
 a tree), a `NavigationServer2D` with one map per `World2D`, the `NavigationGrid2D` region baked from static bodies or read
@@ -23,6 +24,7 @@ rotation, baked from the collision shapes. Queries and avoidance allocate nothin
 | `AStar2D`, `AStar3D`, `PointGraph` | `AStar2D.cs`, `AStar3D.cs`, `PointGraph.cs` | Point-graph A* (waypoints) |
 | `NavigationServer2D`, `NavigationMap2D` | `NavigationServer2D.cs`, `NavigationMap2D.cs` | The server, maps, sync, queries, post-processing (`GridLineOfSight`) |
 | `NavigationPath2D`, `NavigationPathQuery2D` | `NavigationPath2D.cs`, `NavigationTypes.cs` | A reusable query result; the query |
+| `NavigationPathRequest`, `NavigationQueryWorkers`, `NavigationPathMode` | `NavigationQueryWorkers.cs`, `NavigationTypes.cs` | G3.10: an async query's handle; the server's workers; an agent's path mode |
 | `NavigationGrid2D`, `NavigationGridData` | `Nodes2D/` | The grid region node and its baked data resource |
 | `NavigationAgent2D` | `Nodes2D/NavigationAgent2D.cs` | Path following; avoidance settings and `VelocityComputed` |
 | `NavigationObstacle2D` | `Nodes2D/NavigationObstacle2D.cs` | An avoidance obstacle: a radius (moving) and/or a polygon |
@@ -335,6 +337,40 @@ region.Bake();                       // or the inspector's Bake button; saved in
   (`NavigationDebugColors.EdgeConnection`, with a cross at the middle), links (`NavigationDebugColors.Link`: a line, end
   circles, an arrow per direction; faded while unconnected). Culled to the view like grids.
 
+## Async queries (G3.10)
+
+Path queries on worker threads ([ADR 0262](../../memory/decisions/0262-navigation-async-queries.md)), delivered at the
+map's next sync so they stay deterministic:
+
+```csharp
+var request = map.QueryPathAsync(new NavigationPathQuery2D(from, to), path); // path: a NavigationPath2D you keep
+// … at the next sync (the next physics tick) …
+if (request.IsCompleted && request.Status == GridPathStatus.Found)
+    Follow(path.Points);
+```
+
+- **`NavigationMap2D.QueryPathAsync(in query, NavigationPath2D result)`** queues the query and returns a
+  `NavigationPathRequest` (a struct: `IsCompleted`, `Status`, `Result`, `Cancel`, `WasCancelled` until the delivery).
+  Worker threads of the server's own (background threads started on first use, each with its own grid and navmesh
+  search scratch, asleep between batches; not the .NET thread pool, whose queue allocates as items pass through it on
+  Windows) run it into a reused slot; **every map sync first waits for the requests submitted before it, then
+  copies each result into its caller's path in submission order** — never earlier, whatever the threads did. Nothing
+  changes a map between its syncs (cell edits, bakes, moves and region changes all apply at the sync, after the wait),
+  so workers read the live grids and mesh: no snapshots, no copies. A result depends only on the map at submission and
+  the query: the same points as `QueryPath`, one sync later, for any worker count. `Cancel()` before the sync leaves the
+  result untouched.
+- **Workers.** `NavigationServer2D.QueryWorkerCount` (default a quarter of the processors, 1–4; 0 runs the requests on
+  the main thread at the sync, with the same results — tests, platforms without threads); with workers the main thread
+  only waits at the sync (running leftovers itself would grow its own scratch at odd ticks). `PendingQueries`; profiler scope `Navigation async wait`.
+  Allocation-free once the slots, paths and scratches have grown.
+- **Agents.** `NavigationAgent2D.PathMode`: `ProjectDefault` (the server's `AsyncAgentsByDefault`), `Immediate`, `Async`.
+  An async agent queues its repath and takes the new path at the next sync (`PathChanged` then); after a map change or a
+  push off its path it keeps following the old path meanwhile (waypoint signals, no arrival or finish from it), and for
+  a new target it stands still for that tick. `IsPathAsync`, `IsPathPending`.
+- **`project.mfproj`** `navigation` section (format 7; the 6 → 7 step guards it from older editors):
+  `{ "workers": 2, "asyncAgents": true }`, applied to the server by `GameHost` and `HeadlessHost`
+  ([Project and GameHost](project-and-gamehost.md)).
+
 ## Editor
 
 - **Visible Navigation** (toolbar view group, icon `route`, View menu): the editor tree's server draws every edited
@@ -356,7 +392,8 @@ region.Bake();                       // or the inspector's Bake button; saved in
 
 ## Profiler
 
-Scopes `Navigation sync`, `Navigation query`, `Navigation bake`, `Navigation avoidance` and `Navigation debug draw`, plus the server's own
+Scopes `Navigation sync`, `Navigation query`, `Navigation bake`, `Navigation avoidance`, `Navigation async wait` (G3.10)
+and `Navigation debug draw`, plus the server's own
 `NavigationServer2D.FixedStep` and `NavigationServer2D` frame-server scopes ([Profiler](profiler.md)).
 
 ## Tests
@@ -390,11 +427,16 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake`, `Navigation avo
   (an agent round a wall and across a link with `LinkReached`, repaths when a region turns off, the debug draw, and the
   allocation gate's third case: **0 bytes** over 300 ticks of 64 agents on a navmesh with a door region toggling every 30
   ticks, a link and the debug draw on).
+- G3.10: `NavigationAsyncQueryTests` (delivery at the next sync and never before, 200 random grid and navmesh queries equal
+  to `QueryPath` with 0, 1 and 4 workers, the map as it was at submission, cancelling, async agents taking their path one
+  sync later and arriving, keeping the old path while the map changes, and the allocation gate's async case: **0 bytes**
+  over 300 ticks of 64 async agents on a grid and a navmesh with cell edits every 30 ticks); `ProjectSettingsTests` (the
+  `navigation` section).
 - Editor (`NavigationEditorTests`): the toggle, Bake/Clear with undo and staleness, source rows, the agent gizmo, the
   obstacle gizmo and the avoidance radius; the region inspector's Bake/Clear with undo, the region and link gizmos.
 - Render test `navigation` (`NavigationRenderTests`): grid, solid cells, mud, paths and targets over the collision
   shapes through a `Camera2D` (golden).
-- Demo: `NavigationMesh2DSceneTests` (the saved polygons equal a bake, every chaser ferries across and arrives without
+- Demo: `Navigation2DSceneTests.WithAsyncPathsEveryChaserStillArrives` (G3.10); `NavigationMesh2DSceneTests` (the saved polygons equal a bake, every chaser ferries across and arrives without
   wading the river, the pond carved or not, the panel); `Navigation2DSceneTests` (the saved grid equals a real bake, every chaser reaches the target, avoiding chasers
   keep apart and off the boulder, clicked walls reroute, the panel); `Tiles2DSceneTests` (the tile-sourced grid matches the walls layer, the shadow reaches the hero
   without stepping on stone or water, a wall on its path makes it repath).
@@ -439,6 +481,14 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake`, `Navigation avo
   `LinkConnectionRadius`, `UseEdgeConnections` and `PolygonCount`. Region and link moves are polled at each sync. Tile
   layers are parsed whether or not their `CollisionEnabled` is on. Not built: an outline editor with viewport handles,
   baking on a thread, `BorderSize` and `BakingRectOffset`, a carve-without-radius mode for obstacles.
+- **G3.10 async queries:** no snapshots — the proposal's copy-on-write grid snapshots are unnecessary because each sync
+  waits for the requests before it changes the map, so workers read the live data (same guarantees, no copies, 0 B with
+  edits) and navmeshes are covered too. The agent setting is `PathMode` (`ProjectDefault`/`Immediate`/`Async`), not a
+  bool `AsyncPath`, so the project default can apply; a new target makes an async agent stand still for one tick (the old
+  path leads elsewhere). With workers the main thread only waits at the sync; 0 workers runs them all there. Workers are dedicated threads, not
+  the thread pool (its queue allocated 4 KiB segments on Windows CI). Added:
+  `NavigationPathRequest.Cancel`/`WasCancelled`/`IsValid`, `NavigationServer2D.PendingQueries`, the async wait scope.
+  Fixed on the way: navmesh paths no longer keep stale `Cells` from an earlier grid query in a reused path.
 - **G3.8 grid polish** closed without code: its three items were conditional — isometric cells if tile maps need them
   (tile maps are square only), HPA* if a game needs it (none does), cell painting if tile maps do not cover it (G3.6's
   live tile source does).
@@ -448,4 +498,5 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake`, `Navigation avo
 
 [Physics](physics.md) (queries), [Canvas](canvas.md), [Editor](editor.md), [Dev overlay](dev-overlay.md),
 [Demo](demo.md), [Tile maps](tile-maps.md), [Proposal: later phases](future/navigation.md),
-[ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md), [ADR 0261](../../memory/decisions/0261-navigation-meshes-2d.md)
+[ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md), [ADR 0261](../../memory/decisions/0261-navigation-meshes-2d.md),
+[ADR 0262](../../memory/decisions/0262-navigation-async-queries.md)

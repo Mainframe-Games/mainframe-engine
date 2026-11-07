@@ -24,6 +24,7 @@
         <div class="demo-row"><span>Jump point search</span><input type="checkbox" data-checked="jumping"/></div>
         <div class="demo-row"><span>Visible navigation</span><input type="checkbox" data-checked="debug"/></div>
         <div class="demo-row"><span>Avoidance</span><input type="checkbox" data-checked="avoidance"/></div>
+        <div class="demo-row"><span>Async paths</span><input type="checkbox" data-checked="async"/></div>
         <div class="demo-row"><span>Click adds walls</span><input type="checkbox" data-checked="walls"/></div>
         <div class="demo-row"><span>Arrived</span><span>{{arrived}} / {{total}}</span></div>
     </div>

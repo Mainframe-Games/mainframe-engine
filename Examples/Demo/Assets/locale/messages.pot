@@ -389,7 +389,7 @@ msgstr ""
 
 #. RML <span>
 #: Examples/Demo/Assets/Navigation/navmesh_panel.rml:16
-#: Examples/Demo/Assets/Navigation/panel.rml:28
+#: Examples/Demo/Assets/Navigation/panel.rml:29
 msgid "Arrived"
 msgstr ""
 
@@ -461,6 +461,11 @@ msgstr ""
 
 #. RML <span>
 #: Examples/Demo/Assets/Navigation/panel.rml:27
+msgid "Async paths"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:28
 msgid "Click adds walls"
 msgstr ""
 
@@ -602,7 +607,7 @@ msgid "Save"
 msgstr ""
 
 #. node world_ui/MenuSign (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:338
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:364
 msgid ""
 "NOODLES\n"
 "Ramen  9\n"
@@ -610,92 +615,92 @@ msgid ""
 msgstr ""
 
 #. node world_ui/MarketSign (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:351
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:377
 msgid "Market"
 msgstr ""
 
 #. node world_ui/Notice (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:365
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:391
 msgid "Please keep the gate closed after dark"
 msgstr ""
 
 #. node world_ui/Walkers/Nell/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:401
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:427
 msgid "Nell"
 msgstr ""
 
 #. node world_ui/Walkers/Nell/Nameplate (UiMarker3D.Subtext)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:402
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:428
 msgid "Trader"
 msgstr ""
 
 #. node world_ui/Walkers/Nell/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:416
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:442
 msgid "#1 walk"
 msgstr ""
 
 #. node world_ui/Walkers/Whitlock/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:449
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:475
 msgid "Whitlock"
 msgstr ""
 
 #. node world_ui/Walkers/Whitlock/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:463
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:489
 msgid "#2 walk"
 msgstr ""
 
 #. node world_ui/Walkers/Ada/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:496
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:522
 msgid "Ada"
 msgstr ""
 
 #. node world_ui/Walkers/Ada/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:510
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:536
 msgid "#3 walk"
 msgstr ""
 
 #. node world_ui/Walkers/Brann/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:543
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:569
 msgid "Brann"
 msgstr ""
 
 #. node world_ui/Walkers/Brann/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:557
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:583
 msgid "#4 walk"
 msgstr ""
 
 #. node world_ui/Walkers/Corin/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:590
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:616
 msgid "Corin"
 msgstr ""
 
 #. node world_ui/Walkers/Corin/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:604
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:630
 msgid "#5 walk"
 msgstr ""
 
 #. node world_ui/Walkers/Maeve/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:637
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:663
 msgid "Maeve"
 msgstr ""
 
 #. node world_ui/Walkers/Maeve/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:651
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:677
 msgid "#6 walk"
 msgstr ""
 
 #. node world_ui/Crate/Prompt (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:691
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:717
 msgid "Open"
 msgstr ""
 
 #. node world_ui/Crate/Prompt (UiMarker3D.Subtext)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:692
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:718
 msgid "E"
 msgstr ""
 
 #. node world_ui/Gate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:704
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:730
 msgid "Gate"
 msgstr ""
 

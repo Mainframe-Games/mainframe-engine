@@ -79,6 +79,18 @@ public sealed class NavigationDemo2D : Node2D
         }
     }
 
+    /// <summary>G3.10: every chaser's agent paths on a worker thread (<see cref="NavigationPathMode.Async"/>).</summary>
+    public bool AsyncPaths
+    {
+        get => _chasers.Count > 0 && _chasers[0].Agent is { PathMode: NavigationPathMode.Async };
+        set
+        {
+            foreach (var chaser in _chasers)
+                if (chaser.Agent is { } agent)
+                    agent.PathMode = value ? NavigationPathMode.Async : NavigationPathMode.Immediate;
+        }
+    }
+
     /// <summary>
     /// Sends every chaser to <paramref name="target"/>, each to its own spot: the first on it, five on a 40 px ring and the
     /// rest on a 70 px ring, far enough apart for avoiding bodies to settle.

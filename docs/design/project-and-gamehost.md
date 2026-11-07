@@ -83,6 +83,7 @@ commas tolerated). Only values that differ from the defaults are written, except
   "loading": { "async": true, "screen": "Assets/UI/loading.rml" }, // ADR 0183: the start scene loads behind a loading screen
   "saves": { "maxBytes": 16777216, "backups": 2, "compression": "none", "thumbnails": true,
              "thumbnail": { "width": 320, "height": 180 } },
+  "navigation": { "workers": 2, "asyncAgents": true }, // G3.10: async path query threads; agents' default path mode
   "autoloads": [
     { "name": "Music", "scene": "Assets/Autoload/Music.mfscene" },
     { "name": "Stats", "type": "GameStats", "enabled": false }
@@ -90,11 +91,12 @@ commas tolerated). Only values that differ from the defaults are written, except
 }
 ```
 
-- **Versioning.** `format` is `ProjectSettingsFormat.Current` (5; format 1 had a top-level `steamAppId`, which the
+- **Versioning.** `format` is `ProjectSettingsFormat.Current` (7; format 1 had a top-level `steamAppId`, which the
   1 → 2 migration moves to `steam.appId`; the 2 → 3 migration writes `ui.scaleMode: "ConstantPixelSize"` into projects
   that have none, so their UI keeps its size; the 3 → 4 migration moves every `Content/…` path value to `Assets/…`,
   the content folder's new name, ADR 0197; the 4 → 5 step changes nothing: it guards the `export` presets from older
-  editors, ADR 0229). Older files run through `ProjectMigration` steps
+  editors, ADR 0229; 5 → 6 generates the `packKey`, ADR 0240; 6 → 7 changes nothing: it guards the `navigation` section,
+  G3.10). Older files run through `ProjectMigration` steps
   (`From` → `From + 1`, each editing the `JsonObject`) before they are read; newer files are rejected ("update the
   engine"). `engineVersion` is advisory: `GameHost` warns when its major/minor differs from `EngineInfo.Version`
   (development builds `0.0.0-*` never warn).

@@ -66,6 +66,19 @@ public enum NavigationPathPostprocessing : byte
     None,
 }
 
+/// <summary>G3.10: how a <see cref="NavigationAgent2D"/> computes its paths.</summary>
+public enum NavigationPathMode : byte
+{
+    /// <summary>The server's <see cref="NavigationServer2D.AsyncAgentsByDefault"/> (<c>project.mfproj</c> <c>navigation.asyncAgents</c>).</summary>
+    ProjectDefault,
+
+    /// <summary>On the main thread, inside the call that needs the path.</summary>
+    Immediate,
+
+    /// <summary>On a worker (<see cref="NavigationMap2D.QueryPathAsync"/>), delivered at the next map sync.</summary>
+    Async,
+}
+
 /// <summary>Where a <see cref="NavigationGrid2D"/>'s solid cells come from.</summary>
 public enum NavigationGridSource : byte
 {

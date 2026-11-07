@@ -99,6 +99,9 @@ public sealed class ProjectSettings
     /// <summary>Crash reports (<see cref="CrashReporter"/>, G15): the prompt, GPU breadcrumbs, native dumps and the upload endpoint.</summary>
     public CrashProjectSettings Crash { get; } = new();
 
+    /// <summary>Navigation (G3.10): async query workers and the agents' default path mode.</summary>
+    public NavigationProjectSettings Navigation { get; } = new();
+
     /// <summary>
     /// The Steam app id this build starts Steam with (<see cref="EngineOptions.SteamAppId"/>):
     /// <see cref="SteamProjectSettings.DemoAppId"/> for a demo (<see cref="IsDemo"/>), else
@@ -626,6 +629,40 @@ public sealed class LoadingProjectSettings
     /// the engine's (<see cref="LoadingScreen.DefaultSource"/>), an empty string shows none.
     /// </summary>
     public string? Screen { get; set; }
+}
+
+/// <summary>
+/// The <c>navigation</c> section of <c>project.mfproj</c> (G3.10), applied to the <see cref="NavigationServer2D"/> by
+/// <see cref="GameHost"/> and <see cref="HeadlessHost"/>. Every key is optional.
+/// </summary>
+public sealed class NavigationProjectSettings
+{
+    /// <summary>
+    /// Threads for async path queries (<c>workers</c>; null = automatic: a quarter of the processors, 1–4; 0 runs them on
+    /// the main thread at the next sync).
+    /// </summary>
+    public int? Workers
+    {
+        get;
+        set
+        {
+            if (value is < 0 or > 64)
+                throw new ArgumentOutOfRangeException(nameof(value), "navigation.workers is 0 to 64.");
+            field = value;
+        }
+    }
+
+    /// <summary>Agents whose path mode is the project default path asynchronously (<c>asyncAgents</c>; default false).</summary>
+    public bool AsyncAgents { get; set; }
+
+    /// <summary>Applies the section to <paramref name="server"/>.</summary>
+    public void ApplyTo(NavigationServer2D server)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        if (Workers is { } workers)
+            server.QueryWorkerCount = workers;
+        server.AsyncAgentsByDefault = AsyncAgents;
+    }
 }
 
 /// <summary>

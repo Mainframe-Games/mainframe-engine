@@ -14,7 +14,10 @@ namespace MainframeEngine;
 [EditorIcon("route", Family = EditorIconFamily.Space2D)]
 public class NavigationAgent2D : Node
 {
-    private readonly NavigationPath2D _path = new(32);
+    private NavigationPath2D _path = new(32);
+    private NavigationPath2D _incoming = new(32); // G3.10: where an async request is delivered
+    private NavigationPathRequest _request;
+    private bool _waiting;
     private Vector2 _target;
     private Vector2 _pathTarget;   // the target the current path was computed for
     private bool _targetSubmitted;
@@ -68,6 +71,22 @@ public class NavigationAgent2D : Node
     /// <summary>How the path is simplified (grids: line of sight; navigation meshes: the funnel).</summary>
     [Export]
     public NavigationPathPostprocessing PathPostprocessing { get; set; } = NavigationPathPostprocessing.CorridorFunnel;
+
+    /// <summary>
+    /// G3.10: how paths are computed. <see cref="NavigationPathMode.Async"/> queues the query for a worker and takes the
+    /// path at the next map sync (the next physics tick): for a map change or a push off the path the agent keeps
+    /// following its old path meanwhile; for a new target it stands still for that tick. <see cref="PathChanged"/> is
+    /// raised when the new path is taken. Default: the server's <see cref="NavigationServer2D.AsyncAgentsByDefault"/>.
+    /// </summary>
+    [Export]
+    public NavigationPathMode PathMode { get; set; }
+
+    /// <summary>Whether this agent paths asynchronously (its <see cref="PathMode"/>, or the server's default).</summary>
+    public bool IsPathAsync => PathMode == NavigationPathMode.Async
+                               || PathMode == NavigationPathMode.ProjectDefault && _map?.Server is { AsyncAgentsByDefault: true };
+
+    /// <summary>Whether an async path request is on its way.</summary>
+    public bool IsPathPending => _waiting;
 
     /// <summary>Draws this agent's path even while the server's debug draw is off.</summary>
     [Export]
@@ -243,6 +262,12 @@ public class NavigationAgent2D : Node
 
     protected override void OnExitTree()
     {
+        if (_waiting)
+        {
+            _request.Cancel();
+            _waiting = false;
+        }
+
         _map?.RemoveAgent(this);
         _map = null;
         VelocitySubmitted = false;
@@ -268,8 +293,10 @@ public class NavigationAgent2D : Node
         if (!_targetSubmitted || _map is not { } map)
             return;
 
+        if (_waiting && _request.IsCompleted)
+            TakeDelivery();
         var reload = _repath || map.IterationId != _iteration;
-        if (!reload && _index > 0 && _index < _path.Count && !_finished)
+        if (!reload && !_waiting && _index > 0 && _index < _path.Count && !_finished)
         {
             var p = ClosestOnSegment(origin, _path.Points[_index - 1], _path.Points[_index]);
             if (Vector2.Distance(origin, p) >= PathMaxDistance)
@@ -280,6 +307,11 @@ public class NavigationAgent2D : Node
             Repath(map, origin);
         if (_path.Count == 0 || _finished)
             return;
+        if (_waiting)
+        {
+            AdvanceWaypoints(origin); // the old path, until the new one arrives: no arrival or finish from it
+            return;
+        }
 
         if (Vector2.Distance(origin, _target) < TargetDesiredDistance)
         {
@@ -297,11 +329,43 @@ public class NavigationAgent2D : Node
 
     private void Repath(NavigationMap2D map, Vector2 origin)
     {
+        var newTarget = _repath;
         _repath = false;
         _iteration = map.IterationId;
         _pathTarget = _target;
         _hasPathTarget = true;
-        map.QueryPath(new NavigationPathQuery2D(origin, _target, NavigationLayers, PathPostprocessing), _path);
+        var query = new NavigationPathQuery2D(origin, _target, NavigationLayers, PathPostprocessing);
+        if (IsPathAsync)
+        {
+            if (_waiting)
+                _request.Cancel();
+            _request = map.QueryPathAsync(query, _incoming);
+            _waiting = true;
+            if (newTarget)
+            {
+                _path.Clear(); // the old path leads to the old target: stand still until the new one arrives
+                _index = 0;
+            }
+
+            return;
+        }
+
+        map.QueryPath(query, _path);
+        ApplyPath();
+    }
+
+    // G3.10: the async request was delivered into _incoming: it becomes the path.
+    private void TakeDelivery()
+    {
+        _waiting = false;
+        if (_request.WasCancelled)
+            return;
+        (_path, _incoming) = (_incoming, _path);
+        ApplyPath();
+    }
+
+    private void ApplyPath()
+    {
         _iteration = _path.MapIteration;
         _index = 0;
         _lastWaypointReached = false;

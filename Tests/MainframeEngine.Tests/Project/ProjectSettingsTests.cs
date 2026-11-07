@@ -134,7 +134,7 @@ public sealed class ProjectSettingsTests : IDisposable
     {
         var json = Text(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" });
 
-        Assert.Equal("{\n  \"format\": 6,\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}\n", json);
+        Assert.Equal("{\n  \"format\": 7,\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}\n", json);
         AssertSame(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" }, Parse(json));
     }
 
@@ -234,7 +234,7 @@ public sealed class ProjectSettingsTests : IDisposable
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "A", "type": "T" }, { "name": "A", "type": "U" } ] }""", "'A' is used by another autoload")]
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "a/b", "type": "T" } ] }""", "must be a node name")]
     [InlineData("""{ "format": 1, "assemblies": [1] }""", "assemblies must contain only strings")]
-    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 6")]
+    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 7")]
     [InlineData("""{ "format": 0 }""", "invalid project format 0")]
     [InlineData("""[1, 2]""", "is not a JSON object")]
     [InlineData("""{ "format": 1, """, "is not valid JSON")]
@@ -623,5 +623,27 @@ public sealed class ProjectSettingsTests : IDisposable
         }
 
         public void Dispose() { }
+    }
+
+    [Fact]
+    public void TheNavigationSectionRoundTripsAndConfiguresTheServer()
+    {
+        var settings = ProjectSettings.Parse("""{ "format": 7, "name": "Nav", "navigation": { "workers": 2, "asyncAgents": true } }"""u8);
+        Assert.Equal(2, settings.Navigation.Workers);
+        Assert.True(settings.Navigation.AsyncAgents);
+        var json = JsonNode.Parse(Text(settings))!;
+        Assert.Equal(2, (int)json["navigation"]!["workers"]!);
+        Assert.True((bool)json["navigation"]!["asyncAgents"]!);
+
+        using var server = new NavigationServer2D();
+        settings.Navigation.ApplyTo(server);
+        Assert.Equal(2, server.QueryWorkerCount);
+        Assert.True(server.AsyncAgentsByDefault);
+
+        var plain = ProjectSettings.Parse("""{ "format": 6, "name": "Old" }"""u8); // 6 → 7 changes nothing
+        Assert.Null(plain.Navigation.Workers);
+        Assert.False(plain.Navigation.AsyncAgents);
+        Assert.Null(JsonNode.Parse(Text(plain))!["navigation"]); // all defaults: no section
+        Assert.Throws<InvalidDataException>(() => ProjectSettings.Parse("""{ "format": 7, "navigation": { "workers": 65 } }"""u8));
     }
 }

@@ -2,7 +2,8 @@
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G3) · **Status:** G3a shipped (G3.1–G3.6, see
 [Navigation](../navigation.md)); G3.7 avoidance shipped ([Avoidance](../navigation.md#avoidance-g37)); G3.8 closed (nothing to build); G3.9 navigation
-meshes shipped ([Navigation meshes](../navigation.md#navigation-meshes-g39)); G3.10–G3.12 planned ·
+meshes shipped ([Navigation meshes](../navigation.md#navigation-meshes-g39)); G3.10 async queries shipped
+([Async queries](../navigation.md#async-queries-g310)); G3.11–G3.12 planned ·
 **Depends on:** [Navigation](../navigation.md) (the shipped core) · **Related:** [Networking](../networking.md),
 [Mobile](mobile.md) (AOT), [Tile maps](../tile-maps.md)
 
@@ -18,14 +19,8 @@ The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (phy
 - **Shipped (G3.1–G3.5): main thread.** Queries run inside the caller's `OnPhysicsProcess`; bakes run on the main thread
   because physics queries are main-thread only. A 128 × 128 query is expected well under 0.1 ms (benchmarked in
   G3.1), so most games never need more.
-- **G3.10: async queries (opt-in).** `NavigationMap2D.QueryPathAsync(in query, NavigationPath2D result)` returns a
-  `NavigationPathRequest` handle (a struct). Workers run on the .NET thread pool through a cached
-  `IThreadPoolWorkItem` (no per-request allocation), each with its own `GridSearch` scratch, against an immutable
-  snapshot of the grid taken at the last sync (copy-on-write: a changed grid allocates a new snapshot only on the
-  tick it changed). Results are delivered at the **next sync point**, which waits for requests submitted before it.
-  Delivery therefore always lands exactly one tick later, so async queries stay deterministic. Agents with
-  `AsyncPath = true` keep following the old path until the new one arrives, then raise `PathChanged`. A
-  `navigation` section in `project.mfproj` (format bump + migration) holds the worker count and the default.
+- ~~**G3.10: async queries (opt-in).**~~ Shipped: [Navigation → Async queries](../navigation.md#async-queries-g310)
+  (ADR 0262).
 
 ### Later phases
 
@@ -40,8 +35,7 @@ The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (phy
 
 ## Testing
 
-- ~~G3.7~~ shipped ([Navigation → Tests](../navigation.md#tests)). G3.10: delivery exactly one sync later, snapshot
-  copy-on-write, determinism under thread scheduling.
+- ~~G3.7, G3.10~~ shipped ([Navigation → Tests](../navigation.md#tests)).
 
 ## Task list
 
@@ -50,7 +44,7 @@ The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (phy
 3. ~~**G3.8 Grid polish.**~~ closed as not needed (the owner agreed, 2026-11-07): none of its conditions arose (tile maps are square only, no game
    needs HPA*, the live tile source covers cell painting).
 4. ~~**G3.9 2D navmesh polygons.**~~ shipped: [Navigation → Navigation meshes](../navigation.md#navigation-meshes-g39).
-5. **G3.10 Async queries.** Snapshots, worker scratch, next-sync delivery, `project.mfproj` section; tests.
+5. ~~**G3.10 Async queries.**~~ shipped: [Navigation → Async queries](../navigation.md#async-queries-g310).
 6. **G3.11 3D grid.** `NavigationServer3D`, `NavigationGrid3D`, `NavigationAgent3D`; Demo 3D variant.
 7. **G3.12 3D navmesh.** `NavigationMesh`, `NavigationRegion3D`, baking on DotRecast (open question 1).
 

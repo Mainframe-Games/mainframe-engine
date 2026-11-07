@@ -424,6 +424,8 @@ public class GameHost : Engine
         base.OnLoad();
         // Registered last, so it is disposed first on close: queued saves are flushed while everything else still runs.
         Servers.Register(CreateSaveServer(Settings, Tree));
+        if (Servers.Get<NavigationServer2D>() is { } navigation)
+            Settings.Navigation.ApplyTo(navigation); // G3.10
         if (Settings.Window.MaxFps > 0)
             MaxFPS = Settings.Window.MaxFps;
         if (Renderer is IVulkanContext vk)
