@@ -290,6 +290,9 @@ public sealed partial class ViewportController : Node
         var waterSsr = rendering?.WaterSsr ?? WaterSsrQuality.Low; // ADR 0173
         if (Tree?.Servers.Render is { } render && render.WaterSsr != waterSsr)
             render.WaterSsr = waterSsr;
+        var fogQuality = rendering?.VolumetricFogQuality ?? VolumetricFogQuality.High; // G8e.3
+        if (Tree?.Servers.Render is { } server && server.VolumetricFogQuality != fogQuality)
+            server.VolumetricFogQuality = fogQuality;
     }
 
     // ── UI preview backdrop ──────────────────────────────────────────────────────────────────────────────────────

@@ -36,6 +36,20 @@ public class VolumetricFogTests
     }
 
     [Fact]
+    public void AtMediumQualityTheBeamStillStandsOut()
+    {
+        // G8e.3 (ADR 0276): quarter resolution and 12 steps keep the beam's shape: the same checks as High.
+        var medium = HostRunner.Run("volumetric-fog", Output("volumetric-fog-medium"), "--capture", "30", "--count", "4", "--hidden");
+        Gates.AssertValidationClean(medium);
+        Gates.AssertMatchesGolden(medium, 30, goldenFile: "volumetric-fog-medium_frame0030.png");
+        var fog = RowProfile(Capture(medium, 30), 0.5f);
+        TestContext.Current.SendDiagnosticMessage($"Volumetric fog (Medium): beam {fog.Peak:F1} at {fog.PeakAt:F2} of the width, shadowed fog {fog.Edges:F1}");
+        Assert.InRange(fog.PeakAt, 0.35f, 0.7f);
+        Assert.True(fog.Peak > 3f * fog.Edges && fog.Peak - fog.Edges > 15f,
+            $"the beam ({fog.Peak:F1}) does not stand out from the shadowed fog ({fog.Edges:F1})");
+    }
+
+    [Fact]
     public void StillFramesAreStable()
     {
         // The march's noise moves every frame; the temporal reprojection averages it, so a still view barely changes.

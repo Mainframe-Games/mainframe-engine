@@ -221,6 +221,17 @@ public sealed class RenderServer : IServer
     } = WaterSsrQuality.Low;
 
     /// <summary>
+    /// How finely volumetric fog is marched (G8e.3, ADR 0276; <c>rendering.volumetricFogQuality</c>; default
+    /// <see cref="VolumetricFogQuality.High"/>: half resolution, 24 steps; Medium: quarter resolution, 12). Every view;
+    /// applies from the next frame (the new tier starts its own history).
+    /// </summary>
+    public VolumetricFogQuality VolumetricFogQuality
+    {
+        get;
+        set => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown volumetric fog quality.");
+    } = VolumetricFogQuality.High;
+
+    /// <summary>
     /// The largest projected error, in pixels, a mesh level of detail may have and still draw (G6.4; Godot's
     /// <c>mesh_lod_threshold</c>, <c>rendering.meshLodThreshold</c>; default 1). Higher drops to coarser levels sooner;
     /// 0 always draws the full surfaces. Applies from the next frame.
@@ -681,7 +692,7 @@ public sealed class RenderServer : IServer
         var settings = new PostEffectSettings(world, sub.AntiAliasing, sub.DebugView, Math.Clamp(sub.TaaSharpness, 0f, 1f))
         {
             ContactShadows = contact,
-            VolumetricFog = sub.World3D.Environment?.VolumetricFogSettings ?? default,
+            VolumetricFog = (sub.World3D.Environment?.VolumetricFogSettings ?? default) with { Quality = VolumetricFogQuality },
         };
         post.Settings = settings;
         post.ShadowDescriptors = _shadows;
@@ -764,7 +775,7 @@ public sealed class RenderServer : IServer
             }
 
             host.ContactShadows = ContactShadowSettings.For(PrimaryShadowLight(root.World3D.Lights), _shadows is { ContactShadows: true });
-            host.VolumetricFog = root.World3D.Environment?.VolumetricFogSettings ?? default; // ADR 0171
+            host.VolumetricFog = (root.World3D.Environment?.VolumetricFogSettings ?? default) with { Quality = VolumetricFogQuality }; // ADR 0171, 0276
             host.ShadowDescriptors = _shadows;
             needs = host.PostEffects.GetNeeds(host.PostSettings);
         }

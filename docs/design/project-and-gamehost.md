@@ -110,7 +110,9 @@ commas tolerated). Only values that differ from the defaults are written, except
 - **Rendering**: `exposure` → `IVulkanContext.Exposure`, `shadows` → `RenderServer.ShadowQuality`, `antiAliasing`
   (`None` default, `Fxaa` or `Taa`; ADR 0154, ADR 0166) → `IVulkanContext.AntiAliasing`, `taaSharpness` (0–1, default
   0.25, written only when it differs; the sharpen after TAA) → `IVulkanContext.TaaSharpness`, `waterSsr` (`Off`,
-  `Low` default, `High`: refracting water's screen-space reflections, ADR 0173) → `RenderServer.WaterSsr`, and ADR 0174's
+  `Low` default, `High`: refracting water's screen-space reflections, ADR 0173) → `RenderServer.WaterSsr`,
+  `volumetricFogQuality` (`High` default: half resolution and 24 steps; `Medium`: quarter and 12; ADR 0276) →
+  `RenderServer.VolumetricFogQuality`, and ADR 0174's
   render scaling under Godot's names: `scaling3DMode` (`Bilinear` default, `Fsr`, `Taau`) → `IVulkanContext.Scaling3DMode`,
   `scaling3DScale` (0.25–1, default 1: native) → `IVulkanContext.Scaling3DScale`, `fsrSharpness` (0–2 stops, default 0.2)
   → `IVulkanContext.FsrSharpness`, and `meshLodThreshold` (pixels of projected error a mesh level of detail may show, default
