@@ -1,6 +1,6 @@
 # Plan: G3.10 async navigation queries
 
-**Status:** in progress
+**Status:** done, see [log](../logs/2026-11-07-navigation-async-queries.md)
 **Docs:** [Navigation proposal, later phases](../../docs/design/future/navigation.md) (§ Threading, Testing, task 5),
 [Navigation](../../docs/design/navigation.md) (maps and sync points, agents, navigation meshes),
 [ADR 0228](../decisions/0228-navigation-server-agents-and-sources.md), [ADR 0261](../decisions/0261-navigation-meshes-2d.md)
@@ -27,18 +27,18 @@
 
 ## Steps
 
-- [ ] `GridSearch` owns the per-query state (`End`, `Expanded`); `AStarGrid2D` queries take a scratch (internal). Verify:
+- [x] `GridSearch` owns the per-query state (`End`, `Expanded`); `AStarGrid2D` queries take a scratch (internal). Verify:
   the existing grid tests and golden maze unchanged.
-- [ ] `NavigationQueryWorkers` (request slots with their own path buffers, worker items, a lock-guarded queue, the
+- [x] `NavigationQueryWorkers` (request slots with their own path buffers, worker items, a lock-guarded queue, the
   sync's wait and delivery), `QueryPathAsync`, `NavigationPathRequest`. Verify: `NavigationAsyncQueryTests` — delivery
   exactly at the next sync, never before; same points as `QueryPath`; many requests across workers bit-identical over
   runs and with 1 vs 4 workers; cancel; requests on a map whose region changes in between see the old map; grids and
   navmeshes; 0 B steady state.
-- [ ] Agents: `PathMode`; following the old path until delivery; `PathChanged` on delivery. Verify: agent tests; the
+- [x] Agents: `PathMode`; following the old path until delivery; `PathChanged` on delivery. Verify: agent tests; the
   allocation gate with async agents.
-- [ ] Project settings section, `GameHost` wiring of the worker count and default. Verify: `ProjectSettings` round
+- [x] Project settings section, `GameHost` wiring of the worker count and default. Verify: `ProjectSettings` round
   trip and migration tests.
-- [ ] Docs, ADR 0262, log, milestones; gates; PR.
+- [x] Docs, ADR 0262, log, milestones; gates; PR.
 
 ## Done when
 

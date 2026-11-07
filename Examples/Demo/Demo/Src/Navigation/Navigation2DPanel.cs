@@ -5,7 +5,7 @@ namespace Demo;
 
 /// <summary>
 /// The Navigation 2D scene's controls: the grid's diagonal mode and heuristic, jump point search, the navigation debug
-/// draw (server-global: restored when the scene is left), the chasers' avoidance, "Click adds walls", and how many
+/// draw (server-global: restored when the scene is left), the chasers' avoidance, async paths (G3.10), "Click adds walls", and how many
 /// chasers arrived.
 /// </summary>
 public sealed class Navigation2DPanel : UiDocument
@@ -102,6 +102,17 @@ public sealed class Navigation2DPanel : UiDocument
         }
     }
 
+    /// <summary>G3.10: the chasers path on worker threads, delivered at the next sync.</summary>
+    public bool AsyncPaths
+    {
+        get => _demo?.AsyncPaths ?? false;
+        set
+        {
+            if (_demo is { } demo)
+                demo.AsyncPaths = value;
+        }
+    }
+
     public bool AddWalls
     {
         get => _demo?.AddWalls ?? false;
@@ -125,6 +136,7 @@ public sealed class Navigation2DPanel : UiDocument
             .Bind("jumping", this, static d => d.Jumping, static (d, v) => d.Jumping = v)
             .Bind("debug", this, static d => d.ShowNavigation, static (d, v) => d.ShowNavigation = v)
             .Bind("avoidance", this, static d => d.Avoidance, static (d, v) => d.Avoidance = v)
+            .Bind("async", this, static d => d.AsyncPaths, static (d, v) => d.AsyncPaths = v)
             .Bind("walls", this, static d => d.AddWalls, static (d, v) => d.AddWalls = v)
             .Bind("arrived", this, static d => Math.Max(0, d._arrived))
             .Bind("total", this, static d => d._demo?.Chasers.Count ?? 0);

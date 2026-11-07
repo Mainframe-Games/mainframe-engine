@@ -83,6 +83,20 @@ public sealed class Navigation2DSceneTests : IDisposable
     }
 
     [Fact]
+    public void WithAsyncPathsEveryChaserStillArrives()
+    {
+        // G3.10: the panel's toggle makes every agent path on a worker; delivery is the next sync, so the walk is the same.
+        Panel.AsyncPaths = true;
+        Assert.True(Demo.AsyncPaths);
+        Assert.All(Demo.Chasers, c => Assert.Equal(NavigationPathMode.Async, c.Agent!.PathMode));
+        Demo.SetTarget(Demo.Target); // repath now, asynchronously
+        var frames = RunUntilArrived(60 * 30);
+        Assert.True(frames >= 0, $"{Demo.Arrived} of {Navigation2DScene.ChaserCount} arrived");
+        Panel.AsyncPaths = false;
+        Assert.All(Demo.Chasers, c => Assert.Equal(NavigationPathMode.Immediate, c.Agent!.PathMode));
+    }
+
+    [Fact]
     public void AvoidingChasersKeepApartAndOffTheBoulder()
     {
         // G3.7: the agents' radius is 10 px; ORCA keeps centres 20 px apart (a few px of slack where the body's slide

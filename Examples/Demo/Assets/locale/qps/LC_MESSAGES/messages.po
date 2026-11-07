@@ -264,6 +264,9 @@ msgstr "[Çhébýshév ~~]"
 msgid "Jump point search"
 msgstr "[Jûmp pöîñt séårçh ~~~~]"
 
+msgid "Async paths"
+msgstr "[Åsýñç påths ~~]"
+
 msgid "Click adds walls"
 msgstr "[Çlîçk åððs wålls ~~~~]"
 
