@@ -13,7 +13,13 @@ public sealed class NavigationDemo3D : Node3D
     private readonly List<NavChaser3D> _chasers = [];
     private Node3D? _marker;
 
-    /// <summary>The last target (metres, on the floor).</summary>
+    /// <summary>Clicks target the surface's own height (navigation meshes); off: the floor plane (grids).</summary>
+    [Export] public bool KeepHitHeight { get; set; }
+
+    /// <summary>The radius of the ring the chasers after the first spread on round the target (metres).</summary>
+    [Export(Range = "0,5,0.05")] public float Ring { get; set; } = 0.9f;
+
+    /// <summary>The last target (metres).</summary>
     public Vector3 Target { get; private set; }
 
     public IReadOnlyList<NavChaser3D> Chasers => _chasers;
@@ -42,7 +48,9 @@ public sealed class NavigationDemo3D : Node3D
             foreach (var child in chasers.Children)
                 if (child is NavChaser3D chaser)
                     _chasers.Add(chaser);
-        SetTarget(_marker is { } marker ? new Vector3(marker.GlobalPosition.X, 0f, marker.GlobalPosition.Z) : Vector3.Zero);
+        SetTarget(_marker is { } marker
+            ? new Vector3(marker.GlobalPosition.X, KeepHitHeight ? marker.GlobalPosition.Y - 0.05f : 0f, marker.GlobalPosition.Z)
+            : Vector3.Zero);
     }
 
     protected override void OnExitTree()
@@ -53,12 +61,12 @@ public sealed class NavigationDemo3D : Node3D
         base.OnExitTree();
     }
 
-    /// <summary>Sends every chaser to <paramref name="target"/>: the first on it, the others on a 0.9 m ring.</summary>
+    /// <summary>Sends every chaser to <paramref name="target"/>: the first on it, the others on a ring of <see cref="Ring"/>.</summary>
     public void SetTarget(Vector3 target)
     {
         Target = target;
         if (_marker is { } marker)
-            marker.GlobalPosition = new Vector3(target.X, 0.05f, target.Z);
+            marker.GlobalPosition = target + new Vector3(0f, 0.05f, 0f);
         for (var i = 0; i < _chasers.Count; i++)
         {
             if (_chasers[i].Agent is not { } agent)
@@ -67,7 +75,7 @@ public sealed class NavigationDemo3D : Node3D
             if (i > 0)
             {
                 var angle = (i - 1) * MathF.Tau / (_chasers.Count - 1);
-                offset = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle)) * 0.9f;
+                offset = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle)) * Ring;
             }
 
             agent.TargetPosition = target + offset;
@@ -83,6 +91,6 @@ public sealed class NavigationDemo3D : Node3D
         var from = camera.ProjectRayOrigin(pixel);
         var to = from + camera.ProjectRayNormal(pixel) * 200f;
         if (world.DirectSpaceState.RayCast(from, to, out var hit))
-            SetTarget(new Vector3(hit.Position.X, 0f, hit.Position.Z));
+            SetTarget(new Vector3(hit.Position.X, KeepHitHeight ? hit.Position.Y : 0f, hit.Position.Z));
     }
 }

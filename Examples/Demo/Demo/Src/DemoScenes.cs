@@ -29,6 +29,7 @@ public static class DemoScenes
         Scene("particles", "Particles", "3d", "flame", ParticlesScene.Build),
         Scene("shaders", "Shaders", "3d", "palette", ShadersScene.Build),
         Scene("navigation_3d", "Navigation 3D", "3d", "route", Navigation3DScene.Build),
+        Scene("navmesh_3d", "Navigation Mesh 3D", "3d", "vector-triangle", NavigationMesh3DScene.Build),
         Scene("basic_2d", "Basic 2D", "2d", "square", Basic2DScene.Build),
         Scene("sprites_2d", "Sprites 2D", "2d", "slideshow", Sprites2DScene.Build),
         Scene("tiles_2d", "Tiles 2D", "2d", "grid-pattern", Tiles2DScene.Build),

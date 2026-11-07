@@ -4,7 +4,7 @@ public sealed class DemoScenesTests
 {
     [Fact]
     public void TabsAreTheFeaturesInOrder() =>
-        Assert.Equal(["basic_3d", "particles", "shaders", "navigation_3d", "basic_2d", "sprites_2d", "tiles_2d", "navigation_2d", "navmesh_2d", "paths_2d", "physics_2d", "physics_3d", "paths_3d", "spine", "animation_3d", "audio_2d", "audio_3d", "sound_fx", "adaptive_music", "ui", "world_ui"],
+        Assert.Equal(["basic_3d", "particles", "shaders", "navigation_3d", "navmesh_3d", "basic_2d", "sprites_2d", "tiles_2d", "navigation_2d", "navmesh_2d", "paths_2d", "physics_2d", "physics_3d", "paths_3d", "spine", "animation_3d", "audio_2d", "audio_3d", "sound_fx", "adaptive_music", "ui", "world_ui"],
             DemoScenes.All.Select(s => s.Id));
 
     [Fact]
