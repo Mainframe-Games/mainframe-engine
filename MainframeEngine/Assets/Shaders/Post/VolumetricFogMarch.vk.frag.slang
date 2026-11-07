@@ -20,7 +20,7 @@ struct March
     float4 emission;   // rgb = emission × density, a = Henyey–Greenstein g
     float4 ray;        // x = length (m), y = detail spread, z = steps, w = noise frame (< 0: fixed per pixel)
     float4 height;     // x = fog height (m), y = height density (1/m), z = ambient inject, w = 0
-    float4 noise;      // x = 1 / noise scale (1/m), y = noise strength
+    float4 noise;      // x = 1 / noise scale (1/m), y = noise strength, z = scene pixels per target texel (2 or 4)
     float4 sizes;      // xy = this target's size, zw = the scene's (pixels)
 };
 
@@ -89,7 +89,7 @@ float sunVisibility(float3 p, float3 L)
 float4 main(float4 fragCoord : SV_Position) : SV_Target0
 {
     float2 sceneSize = pc.sizes.zw;
-    int2 pixel = volumetricPixel(int2(fragCoord.xy), sceneSize);
+    int2 pixel = volumetricPixel(int2(fragCoord.xy), sceneSize, int(pc.noise.z));
     float depth = sceneDepth.Load(int3(pixel, 0));
 
     float3 origin, dir;

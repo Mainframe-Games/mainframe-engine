@@ -12,7 +12,7 @@
 struct Temporal
 {
     float4 params; // x = history weight (0: none), y = clip gamma, zw = this target's size
-    float4 scene;  // xy = the scene's size, z = the fog's length (m)
+    float4 scene;  // xy = the scene's size, z = the fog's length (m), w = scene pixels per texel (2 or 4)
 };
 
 [[vk::push_constant]] ConstantBuffer<Temporal> pc;
@@ -43,7 +43,7 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
     }
 
     float2 sceneSize = pc.scene.xy;
-    int2 pixel = volumetricPixel(texel, sceneSize);
+    int2 pixel = volumetricPixel(texel, sceneSize, int(pc.scene.w));
     float depth = sceneDepth.Load(int3(pixel, 0));
     float3 origin, dir;
     volumetricRay(pixel, sceneSize, origin, dir);

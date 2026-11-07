@@ -110,6 +110,14 @@ public class SubViewport : SceneViewport
     public bool PostProcessing { get; set; }
 
     /// <summary>
+    /// A renderer debug view for this view (ADR 0275; not saved): <see cref="RenderDebugView.Velocity"/> and
+    /// <see cref="RenderDebugView.AmbientOcclusion"/> replace its final image while its post-processing runs
+    /// (<see cref="PostProcessing"/>), <see cref="RenderDebugView.IndirectLight"/> draws it without direct lights. The
+    /// editor's View menu sets it on a scene's view; the main window's is <see cref="RenderServer.DebugView"/>.
+    /// </summary>
+    public RenderDebugView DebugView { get; set; }
+
+    /// <summary>
     /// The view's anti-aliasing when <see cref="PostProcessing"/> is on (Godot's <c>screen_space_aa</c> / <c>use_taa</c>
     /// per viewport; the main view uses <c>rendering.antiAliasing</c>). TAA jitters only this view.
     /// </summary>

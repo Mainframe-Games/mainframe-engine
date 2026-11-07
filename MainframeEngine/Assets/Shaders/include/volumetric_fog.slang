@@ -7,10 +7,11 @@
 
 #include "frame.slang"
 
-// The full-resolution pixel a half-resolution texel stands for.
-int2 volumetricPixel(int2 texel, float2 sceneSize)
+// The full-resolution pixel a texel of the fog's targets stands for: `scale` is 2 at half resolution (High), 4 at
+// quarter (Medium, ADR 0276).
+int2 volumetricPixel(int2 texel, float2 sceneSize, int scale)
 {
-    return min(texel * 2, int2(sceneSize) - int2(1));
+    return min(texel * scale, int2(sceneSize) - int2(1));
 }
 
 // World position of a depth-buffer value at a full-resolution pixel (its centre).

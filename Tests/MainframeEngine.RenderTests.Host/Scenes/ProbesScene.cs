@@ -19,7 +19,8 @@ using Color = System.Drawing.Color;
 /// </list>
 /// <c>--count</c>: 0 sun and probes (the golden; red bleed), 1 no sun (the occlusion ratio), 2 no sun and no volume,
 /// 3 sun, probes, SSAO, contact shadows and volumetric fog with the camera orbiting (the allocation run), 4 no sun, half
-/// the occlusion, a green tint.
+/// the occlusion, a green tint, 5 sun and probes seen through <see cref="RenderDebugView.IndirectLight"/> (G8e.1, ADR 0275:
+/// the sun adds nothing, so the shed matches the no-sun prediction, and the red wall's baked bounce stays).
 /// </summary>
 public sealed class ProbesScene(HostOptions host) : RenderTestGame(host)
 {
@@ -53,7 +54,7 @@ public sealed class ProbesScene(HostOptions host) : RenderTestGame(host)
     private WorldEnvironment _environment = null!;
     private bool _checking;
 
-    private bool Sun => Host.Count is 0 or 3;
+    private bool Sun => Host.Count is 0 or 3 or 5;
 
     private bool Probes => Host.Count != 2;
 
@@ -65,6 +66,8 @@ public sealed class ProbesScene(HostOptions host) : RenderTestGame(host)
     protected override void LoadScene()
     {
         var scene = new Node3D { Name = nameof(ProbesScene) };
+        if (Host.Count == 5 && Servers.Render is { } render)
+            render.DebugView = RenderDebugView.IndirectLight;
         _camera = new Camera3D { Name = "Camera", Position = CameraPosition };
         _camera.LookAt(CameraTarget);
         scene.AddChild(_camera);
@@ -155,7 +158,7 @@ public sealed class ProbesScene(HostOptions host) : RenderTestGame(host)
         Log.Info($"Probes: inside {inside}, outside {outside}, ratio {ratio:F3}");
         switch (Host.Count)
         {
-            case 1 or 4:
+            case 1 or 4 or 5:
                 {
                     var expected = Luminance(Predicted(Inside)) / Luminance(Predicted(Outside));
                     Log.Info($"Probes: the bake predicts the ratio {expected:F3}");
@@ -172,6 +175,9 @@ public sealed class ProbesScene(HostOptions host) : RenderTestGame(host)
                             Fail($"With a green occlusion tint the shed's floor (green share {insideGreen:F3}) is not greener than open floor ({outsideGreen:F3}).");
                     }
 
+                    if (Host.Count == 5)
+                        CheckRedBleed(capture);
+
                     break;
                 }
             case 2:
@@ -180,18 +186,24 @@ public sealed class ProbesScene(HostOptions host) : RenderTestGame(host)
                 break;
             case 0:
                 {
-                    var near = Linear(capture, ByRedWall);
-                    var open = Linear(capture, OpenFloor);
-                    var nearRed = near.X / (near.X + near.Y + near.Z);
-                    var openRed = open.X / (open.X + open.Y + open.Z);
-                    Log.Info($"Probes: floor by the red wall {near} (red share {nearRed:F3}), open floor {open} ({openRed:F3})");
-                    if (!(nearRed > openRed + RedBleed))
-                        Fail($"The floor by the red wall (red share {nearRed:F3}) is not redder than open floor ({openRed:F3}).");
+                    CheckRedBleed(capture);
                     if (!(ratio < 0.5f))
                         Fail($"With the sun the shed's floor ({ratio:F3} of the open floor) should be far darker.");
                     break;
                 }
         }
+    }
+
+    // The floor next to the sunlit red wall is redder than open floor: the bake's bounce light.
+    private void CheckRedBleed(FrameCapture capture)
+    {
+        var near = Linear(capture, ByRedWall);
+        var open = Linear(capture, OpenFloor);
+        var nearRed = near.X / (near.X + near.Y + near.Z);
+        var openRed = open.X / (open.X + open.Y + open.Z);
+        Log.Info($"Probes: floor by the red wall {near} (red share {nearRed:F3}), open floor {open} ({openRed:F3})");
+        if (!(nearRed > openRed + RedBleed))
+            Fail($"The floor by the red wall (red share {nearRed:F3}) is not redder than open floor ({openRed:F3}).");
     }
 
     // What the shaders compute for floor at `point` with no sun: albedo × (sky around the bent normal × the sky light +

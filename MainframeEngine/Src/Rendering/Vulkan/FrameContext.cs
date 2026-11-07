@@ -676,12 +676,18 @@ public sealed unsafe class FrameContext : IDisposable
     /// <see cref="Begin(ICamera, LightEnvironment?)"/>; <paramref name="shadows"/> false tells the lit shaders not to
     /// sample shadow maps (offscreen views of another world).
     /// </summary>
-    public void Begin(ICamera camera, LightEnvironment? lights, bool shadows)
+    public void Begin(ICamera camera, LightEnvironment? lights, bool shadows) => Begin(camera, lights, shadows, directLights: true);
+
+    /// <summary>
+    /// <see cref="Begin(ICamera, LightEnvironment?, bool)"/>; <paramref name="directLights"/> false writes the lights block
+    /// without its lights (<see cref="RenderDebugView.IndirectLight"/>, ADR 0275).
+    /// </summary>
+    public void Begin(ICamera camera, LightEnvironment? lights, bool shadows, bool directLights)
     {
         ArgumentNullException.ThrowIfNull(camera);
         WriteCamera(camera.ViewMatrix, camera.ProjectionMatrix, camera.Position);
         if (lights is not null)
-            WriteLights(lights, camera.Position, shadows);
+            WriteLights(lights, camera.Position, shadows, directLights);
         BindEnvironment();
     }
 
@@ -822,12 +828,15 @@ public sealed unsafe class FrameContext : IDisposable
     public void WriteLights(LightEnvironment lights, Vector3 cameraPosition) => WriteLights(lights, cameraPosition, shadows: true);
 
     /// <summary>Writes the lights block; <paramref name="shadows"/> false disables shadow-map sampling for this view.</summary>
-    public void WriteLights(LightEnvironment lights, Vector3 cameraPosition, bool shadows)
+    public void WriteLights(LightEnvironment lights, Vector3 cameraPosition, bool shadows) => WriteLights(lights, cameraPosition, shadows, directLights: true);
+
+    /// <summary>Writes the lights block; <paramref name="directLights"/> false leaves the lights out (only the ambient header).</summary>
+    public void WriteLights(LightEnvironment lights, Vector3 cameraPosition, bool shadows, bool directLights)
     {
         ArgumentNullException.ThrowIfNull(lights);
         if (!_ctx.FrameStarted) return;
         var offset = (int)((ulong)CurrentView * _viewStride + _lightsOffset);
-        lights.WriteUbo(_buffers[_ctx.FrameSlot].MappedSpan.Slice(offset, LightEnvironment.UboSize), cameraPosition, shadows);
+        lights.WriteUbo(_buffers[_ctx.FrameSlot].MappedSpan.Slice(offset, LightEnvironment.UboSize), cameraPosition, shadows, directLights);
         _lightsFrame[Index] = _ctx.FrameNumber;
     }
 

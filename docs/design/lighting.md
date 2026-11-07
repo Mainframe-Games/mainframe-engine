@@ -213,6 +213,24 @@ bounces, `Energy` 2.4, `SkyOcclusion` 0.5, a pale green `OcclusionTint`, and `Ba
 load, so a generator change re-bakes in the background, about a minute, until the bake is committed again with
 `--bake-lighting --project Examples/Forest`). See [Forest → Light probes](forest.md#light-probes).
 
+#### Debugging the probes
+
+G8e.1's inspection tools ([ADR 0275](../../memory/decisions/0275-indirect-light-view-and-probe-overlay.md)):
+
+- **Indirect light only** (`RenderDebugView.IndirectLight`; `MAINFRAME_DEBUG_VIEW=indirect`; the editor's View ›
+  Indirect Light Only, `SubViewport.DebugView`): the view's lights UBO is written without its lights
+  (`LightEnvironment.WriteUbo(…, directLights: false)`: counts 0, slots zeroed, the ambient header kept), so every lit
+  surface shows its albedo under the ambient term alone: the sky's light, the probes' sky visibility and bounce, the AO.
+  Emission, fog and post-processing stay. A leak is a bright surface where the sky is hidden; a dark pocket a black one
+  in the open. The `probes` render test's `probes-indirect` run checks that the sun adds nothing and the baked bounce stays.
+- **Show Light Probes** (the editor's View menu, `view.probes`; `LightProbeOverlay`): the baked probes of every volume
+  within 24 m of the camera (8 192 at most, nearest columns first) as small crosses in the view's depth-tested lines.
+  Brightness = the sky visibility toward up (cosine-weighted: white = open sky, black = hidden), tint = the bounce light
+  toward up × `Energy`. Read from the CPU coefficients, 0 B per frame. Invalid probes cannot be shown: the bake dilates
+  them away and stores no validity.
+
+![The Forest in the editor's Indirect Light Only view with Show Light Probes: a path under the canopy lit by the sky, the probes and AO alone, the probes as grey crosses (dim under the trees)](../images/editor-probes.png)
+
 ### Image-based lighting fallbacks
 
 The ambient helpers (`include/environment.slang`) fall back without a captured sky: `iblDiffuse` returns the ambient
@@ -281,8 +299,8 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass (no 
 - PBR has no `MetallicSpecular`, per-material `AoLightAffect` or multi-scattering energy compensation yet; without a
   probe volume specular occlusion comes only from SSAO (not from the material's AO) and there is no bent normal.
 - Light probes (ADR 0170) are static: one sun direction per bake; a moved boulder or a sun far from the baked one makes
-  the bake stale (it then renders without probes, or re-bakes with `BakeWhenStale`). No probe debug view or "indirect
-  only" view mode yet; the volume is axis-aligned (rotation ignored); the sky irradiance stays a cube (the SH L2 move is
+  the bake stale (it then renders without probes, or re-bakes with `BakeWhenStale`). The probe overlay draws crosses
+  near the camera, not SH spheres, and cannot show invalid probes (ADR 0275); the volume is axis-aligned (rotation ignored); the sky irradiance stays a cube (the SH L2 move is
   not needed while set 0 has five images); dynamic objects sample the probes but do not occlude them.
 - Fog has no aerial perspective or volumetric part (froxels wait for compute, ADR 0149).
 

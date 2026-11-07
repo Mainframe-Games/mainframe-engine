@@ -441,6 +441,7 @@ public class GameHost : Engine
         {
             render.ShadowQuality = Settings.Rendering.Shadows; // before any visual creates GPU resources (Off)
             render.WaterSsr = Settings.Rendering.WaterSsr;
+            render.VolumetricFogQuality = Settings.Rendering.VolumetricFogQuality; // G8e.3
             render.MeshLodThreshold = Settings.Rendering.MeshLodThreshold; // G6.4
         }
         // The session (autoloads, the main scene) starts on the first update, once the window is up (Godot readies the
