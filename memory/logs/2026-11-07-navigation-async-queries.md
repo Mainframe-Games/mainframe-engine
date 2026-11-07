@@ -1,6 +1,6 @@
 ---
 summary: >-
-  G3.10 (ADR 0262): async navigation queries — QueryPathAsync on thread-pool workers over the live map, delivered at the
+  G3.10 (ADR 0262): async navigation queries — QueryPathAsync on worker threads over the live map, delivered at the
   next sync after it waits for them; agents' PathMode; project.mfproj format 7 navigation section; 0 B.
 ---
 
@@ -12,7 +12,7 @@ Branch `feature/navigation-async` (stacked on `feature/navigation-polygons`, #19
 
 ## What changed
 
-- **Engine:** `NavigationQueryWorkers` (reused request slots, `IThreadPoolWorkItem` workers with their own
+- **Engine:** `NavigationQueryWorkers` (reused request slots, dedicated background worker threads with their own
   `NavigationQueryScratch`, `Complete()` at every map sync: run what is left, wait, deliver in submission order),
   `NavigationPathRequest`, `NavigationMap2D.QueryPathAsync` and a scratch-taking query core; `AStarGrid2D` queries can
   run on a caller's `GridSearch` (`End`/`Expanded` moved into it); `NavigationPath2D.CopyFrom`;
@@ -29,12 +29,16 @@ Branch `feature/navigation-async` (stacked on `feature/navigation-polygons`, #19
 ## Decisions
 
 - [ADR 0262](../decisions/0262-navigation-async-queries.md): no snapshots — the sync waits for the workers before it
-  changes the map; thread-pool workers; `PathMode`; format 7.
+  changes the map; dedicated worker threads; `PathMode`; format 7.
 
 ## Dead ends
 
 - A first test compared `Cells` of navmesh paths in a reused `NavigationPath2D`: the immediate query kept the cells of
   an earlier grid path. Fixed in the map (navmesh points have no cells), not in the test.
+
+- The proposal's thread-pool workers (cached `IThreadPoolWorkItem`s) passed the allocation gate on macOS and Linux but
+  not on Windows CI: 4192 bytes per window, a new segment of the pool's global queue as work items flowed through it.
+  The workers became the server's own background threads, asleep on a monitor between batches.
 
 ## State changes
 
