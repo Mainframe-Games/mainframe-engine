@@ -43,6 +43,18 @@ public class WaterSceneTextureTests
     }
 
     [Fact]
+    public void SkyReflectionsUnderARoofTakeTheProbesOcclusion()
+    {
+        // G8e.6 (ADR 0279): with SSR off (frame 30) every reflection is a miss; the probes darken the sky under the roof.
+        var probes = HostRunner.Run("water-ssr", Output("water-roof-probes"), "--capture", "20,30", "--count", "3", "--hidden");
+        var none = HostRunner.Run("water-ssr", Output("water-roof"), "--capture", "20,30", "--count", "4", "--hidden");
+        AssertSelfChecks(probes);
+        AssertSelfChecks(none);
+        Gates.AssertValidationClean(probes);
+        Gates.AssertMatchesGolden(probes, 30, goldenFile: "water-roof-probes_frame0030.png");
+    }
+
+    [Fact]
     public void APostProcessedSubViewportRefractsAndReflectsToo()
     {
         // The editor's case: the view's own scene copy and resumed pass, with its post stack and TAA.
