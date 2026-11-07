@@ -217,12 +217,8 @@ can be saved as a `.mfres` or made unique from the inspector.
     <td align="center" valign="top"><img src="docs/images/editor-world-ui-panel.png" width="380" alt="The Demo's gate terminal selected in the editor's scene view: its UiPanel3D shows Gate control, Gate open and a Close gate button from the UI preview's stand-in data, with the panel's Inspector"><br><b>World-space panels</b> — UiPanel3D terminals show their documents in the scene view, bound to the UI preview's stand-in data</td>
   </tr>
   <tr>
-    <td align="center" valign="top"><img src="docs/images/editor-tree.png" width="380" alt="A new Oak Medium Tree3D in the editor: the tree inspector's preset, seed and style, the LOD table with triangles, vertices and distances, Bake and its status, and the options' level 1"><br><b>Tree inspector</b> — preset, seed dice, style, a LOD table with forced levels, Bake with stale bakes flagged</td>
+    <td align="center" valign="top"><img src="docs/images/editor-tree.png" width="380" alt="A new Oak Medium Tree3D in the editor: the tree inspector's preset, seed and style, the LOD table with triangles, vertices and distances, Bake and its status, the Variants count with Create Collider and Bake Variants, and the options' level 1"><br><b>Tree inspector</b> — preset, seed dice, style, a LOD table with forced levels, Bake with stale bakes flagged, Bake Variants into colliding tree scenes for terrain scatter</td>
     <td align="center" valign="top"><img src="docs/images/editor-river.png" width="380" alt="A stream carved into a Faceted valley in the editor: the River3D's points, the selected point's bank and depth handles, cross-sections, and the inspector's Carve, Re-carve, Uncarve and Fit to ground buttons"><br><b>River tool</b> — draw streams on the ground, drag banks and depth, carve the channel; one undo per step</td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><img src="docs/images/editor-river.png" width="380" alt="A stream carved into a Faceted valley in the editor: the River3D's points, the selected point's bank and depth handles, cross-sections, and the inspector's Carve, Re-carve, Uncarve and Fit to ground buttons"><br><b>River tool</b> — draw streams on the ground, drag banks and depth, carve the channel; one undo per step</td>
-    <td></td>
   </tr>
 </table>
 
@@ -315,7 +311,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | Feature | What you get |
 |---|---|
 | [Terrain](docs/design/terrain.md) | `Terrain3D`: chunked heightmap meshes with LOD, splat material layers, foliage scatter, object scatter (rocks, stumps, crates: scenes with stable ids games can remove and save), exact collision and height queries; the editor's Terrain dock sculpts (raise, lower, smooth, flatten, set height, ramps), paints surfaces, layers, channels and foliage, lays water and scatters objects with a brush ring, one undo per stroke |
-| [Procedural trees](docs/design/procedural-trees.md) | A port of Ez Tree: 15 presets, realistic or low-poly styles, wind, levels of detail and impostors, from a seed; an editor inspector with presets, a seed dice, a LOD table and Bake |
+| [Procedural trees](docs/design/procedural-trees.md) | A port of Ez Tree: 15 presets, realistic or low-poly styles, wind, levels of detail and impostors, from a seed; an editor inspector with presets, a seed dice, a LOD table, Bake, and Bake Variants into colliding tree scenes and a terrain scatter type |
 | [Water](docs/design/water.md) | Streams carved into the terrain along a curve, ponds and falls with spray, refraction, screen-space reflections and caustics; draw, widen, deepen and carve streams in the editor with the curve tool |
 | [Asset import](docs/design/asset-pipeline.md) | glTF, FBX and OBJ through Assimp into scenes you can instance, with import settings, an import cache and stable UIDs |
 

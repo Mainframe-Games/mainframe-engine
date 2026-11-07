@@ -15,7 +15,9 @@ of detail, bake), the tree materials (PBR bark and leaves on `FoliageMaterial3D`
 foliage on top: leaf-cluster cards, hierarchical wind, bark detail, coverage-preserving mips, octahedral impostors with
 per-instance cross-fades, and four new species ([Foliage quality](#foliage-quality-adr-0172)). G8b.3
 ([ADR 0271](../../memory/decisions/0271-tree-inspector-bake-staleness.md)) adds the editor's [tree inspector](#inspector)
-and the bake status it shows; the [proposal](future/procedural-trees.md) has the rest of the design.
+and the bake status it shows, and G8b.7 ([ADR 0274](../../memory/decisions/0274-tree-variants-and-scatter-scenes.md))
+its [variants and scatter scenes](#variants-and-scatter-scenes). Where the build differs from the G8b proposal (ADR
+0149), [Changes from the proposal](#changes-from-the-proposal) says so.
 
 ## Layout
 
@@ -227,6 +229,7 @@ Bark normal maps are `_NormalGL` (+Y up, the engine's convention); `_Roughness` 
 | **Wind** (`wind`) | `World3D.PreviewWind` for this scene's view: a steady breeze while the world has no wind of its own. Off by default; view state, not saved |
 | **LOD table** | Per level: triangles, vertices and its distance range; the impostor row (2 triangles, drawn by `TreeScatter` only). A row's eye forces that level in the view (`ForceLod`; view state, not saved) |
 | **Bake** (`package`) and status | `GenerateBake()` saved to `Assets/Trees/<preset>_<seed>_<style>.mfres` (a re-bake overwrites the tree's bake file), then `BakedMesh` set as one undo step (the file stays). The status: "Baked, up to date", "Stale … Bake again" or "Not baked: generated in 4.2 ms" |
+| **Variants** count, **Create Collider** (`box`), **Bake Variants** (`packages`) | G8b.7: N seeds (1–16, default 4) baked into tree scenes and a scatter type; the toggle (on by default) wraps each in a `StaticBody3D` with its trunk capsule. Files only, no undo step; the result shows under the row. See [Variants and scatter scenes](#variants-and-scatter-scenes) |
 
 The header replaces the `Preset`, `Seed` and `Style` rows. The options keep the generated rows: `Options` folds open
 into its groups (Branches, Bark, Leaves, Low poly, …), and the `Level` array's elements are named by
@@ -235,6 +238,29 @@ unused" past `Levels`). `TreeLevelInspector` hides what does not apply to a leve
 Start on the trunk, Children on level 3. Sliders regenerate the tree at most once per frame (`Options.Changed`); after
 each committed change, undo or redo the inspector regenerates a changed tree at once and rebuilds, so the table and status
 are current.
+
+## Variants and scatter scenes
+
+**Bake Variants** (G8b.7, [ADR 0274](../../memory/decisions/0274-tree-variants-and-scatter-scenes.md); `TreeVariants`
+in the editor) bakes the inspected tree's options for seeds `seed … seed + N − 1` (variant 0 is the tree itself) and
+writes them to `Assets/Trees/<stem>_<style>/`, the stem being the bake file's (`oak_medium`):
+
+| File | What |
+|---|---|
+| `oak_medium_realistic_v0.mfres` … | the variant's `TreeMesh` (levels, trunk capsule, options, bake hash) |
+| `oak_medium_realistic_v0.mfscene` … | the tree scene: with **Create Collider** a `StaticBody3D` named after the variant holding the baked `Tree3D` (its own trunk body off) and a `CollisionShape3D` "Trunk" with the trunk capsule; without, the baked `Tree3D` alone with `Collision` off |
+| `oak_medium_realistic.mfres` | a `ScatterObjectType` (`Name` = the folder's name) whose `Scenes` are the variants |
+
+- The scenes keep the inspected tree's level distances, `CastShadows` and material overrides, and load without the
+  generator.
+- A new type gets spacing 1.5 × the widest canopy radius (at least 2 m, in 0.5 m steps), `SinkMeters` = the trunk radius,
+  35° slope limit, scale 0.85–1.15, random yaw and `AvoidWater`. A re-run overwrites the meshes and scenes (their UIDs
+  stay, so placed objects follow) and keeps the type's placement fields, replacing only its `Scenes`.
+- Add the type to a terrain's `TerrainData.ObjectTypes` and the Terrain dock's Objects mode scatters, places and removes
+  the trees with stable ids ([Terrain → Objects](terrain.md#objects)); each instance's variant is a hash of its id.
+- Hand-placed and near trees are objects (about 2,000 per terrain at most); forests of thousands are a
+  [`TreeScatter`](#treescatter) (per-chunk multimeshes, impostors, a body per chunk). There is no `MultiMesh` objects mode
+  and no backdrop `FoliageType` from a tree (one mesh and one material cannot hold bark and leaves).
 
 ## Materials
 
@@ -467,6 +493,10 @@ The nodes (ADR 0158):
 - **ADR 0172 render:** `tree-clusters`, `tree-impostor` (the impostors within 8 % of the mesh at 62 m), `tree-wind` (a
   later frame and the still run both differ), `tree-bark`, `tree-species`, and `tree-forest-g8e` (the tree-forest with
   every extension under the prepass and TAA) as a golden and a 0 B fly-through over 120 frames (the scene prewarms every batch for its first frames, as the Forest does).
+- **Editor:** `Tree3DInspectorTests` (preset, import, dice, style, LOD table, Bake and its status, level names, icons with
+  tooltips); `TreeVariantsTests` (G8b.7: meshes, collider scenes and the type, distinct seeds, a re-run keeping the
+  type's settings and the scenes' UIDs, bare trees without the collider, the type scattering colliding trees on a
+  terrain).
 - **Render** (MoltenVK and lavapipe goldens): `tree-realistic` (an Oak Medium and a Pine Medium at level 0 at t = 1.5 s in a fixed
   wind; the still run must differ), `tree-lowpoly`, `tree-forest` (160 trees seen from the forest's edge; every chunk
   draws one level); `tree-forest --count 2000` as an allocation gate (0 B over 120 frames of the fly-through) and a CPU
@@ -475,9 +505,43 @@ The nodes (ADR 0158):
 
 ## Not yet
 
-`RuntimeGeneration` modes, the inspector's Bake variants and Create collider (G8b.7, with scatter), impostors in the
-bake (`Tree3D` draws none), the LOD table's switch sizes in pixels, screen-space LOD selection from `GeometricError` (G6.4),
-Godot's per-node visibility-range fade margins (`Tree3D` levels still switch hard; only `TreeScatter`'s per-instance
-levels fade), impostors on `Tree3D`, probe sampling at the impostor's reconstructed position (G8e.1), LowPoly wind,
-`BarkTextureScale.y`, generation and bakes on worker threads at run time, and a GPU-driven per-instance cull (the
-per-instance levels still run the vertex shader for every instance of a drawn batch).
+`RuntimeGeneration` modes, impostors in the bake (`Tree3D` draws none), the LOD table's switch sizes in pixels,
+screen-space LOD selection from `GeometricError` (G6.4), Godot's per-node visibility-range fade margins (`Tree3D` levels
+still switch hard; only `TreeScatter`'s per-instance levels fade), impostors on `Tree3D`, probe sampling at the
+impostor's reconstructed position (G8e.1), LowPoly wind, `BarkTextureScale.y`, generation and bakes on worker threads at
+run time, the trellis, `ITerrainObject` on tree scenes, and a GPU-driven per-instance cull (the per-instance levels
+still run the vertex shader for every instance of a drawn batch).
+
+## Changes from the proposal
+
+The G8b proposal (accepted with every default on 2026-10-08, [ADR
+0149](../../memory/decisions/0149-terrain-trees-water-engine-features.md)) was built in G8b.1–G8b.7 and G8e.5. It
+differed here:
+
+- **Port** ([ADR 0152](../../memory/decisions/0152-ez-tree-port.md)): as proposed, a literal port in doubles with
+  continuous bark V by default and Ez Tree's mode for parity. `Custom0.y` is `level / 4` (the forest-slice contract), not
+  `level / (levels + 1)`. Leaf and bark textures live in the engine's content, not the editor's, and are not copied into
+  projects. The trellis is not ported (its slot is `TreeParams.ExtraForce`).
+- **Levels of detail** ([ADR 0158](../../memory/decisions/0158-tree3d-tree-materials-treescatter.md)): three internal
+  `TreeLod3D` children with visibility ranges and one shared `CustomAabb`, not a G6.4 `MeshLod` chain ending in the
+  impostor; `ImpostorScreenHeight` became `TreeScatter.ImpostorDistance` (metres).
+- **Bake:** `TreeMesh` holds the levels, trunk, options, seed, style and `BakeHash`, but no materials (code-made ORM
+  textures; the options rebuild them) and no impostor. `TreeBaker` is `Tree3D.Bake`/`GenerateBake`. A stale bake shows
+  the live tree in the editor only (ADR 0271).
+- **Runtime generation:** `RuntimeGeneration` (`WhenNotBaked`, `Always`, `Never`) and the release-build error are not
+  built: an unbaked tree always generates at load (decision 4).
+- **Bark** is a PBR `FoliageMaterial3D` with the leaves' bend, not a static `StandardMaterial3D`, so leaves stay on their
+  twigs; `FoliageMaterial3D.OrmTexture` carries its roughness.
+- **Impostors** ([ADR 0172](../../memory/decisions/0172-ez-tree-foliage-quality.md)): baked on the CPU (no
+  `SubViewportCapture` linear target), with a detail atlas (thickness, AO, leaf mask) beside albedo and normal + depth;
+  drawn only by `TreeScatter`, as a level after the meshes, with per-instance IGN/Bayer cross-fades instead of a
+  `MeshRenderer` dither band. `Tree3D` draws none. `Full` octahedral and 2048² atlases are not built (decision 6: 1024²).
+- **Editor** (ADR 0271): the preset list holds every `TreePresets` name, the level foldouts are the generated option
+  rows, the LOD table shows distances (switch sizes in pixels wait for G6.4's screen-space selection), and the impostor
+  row is informational. Generation stays synchronous (decision 8).
+- **Scatter** ([ADR 0274](../../memory/decisions/0274-tree-variants-and-scatter-scenes.md)): Create Collider is a toggle
+  on Bake Variants, which also writes a `ScatterObjectType`. There is no `MultiMesh` objects mode (forests are
+  `TreeScatter`'s, which came from ADR 0158 and is not in the proposal) and no backdrop `FoliageType` from a tree. The
+  10 000-impostor allocation gate is `tree-forest --count 2000` and `tree-forest-g8e` (0 B).
+- **Tests:** `foliage-wind` exists; the planned `foliage-shadow` golden is covered by `tree-realistic` and `tree-wind`
+  (their still runs must differ, shadows included); `tree-impostor` compares impostor and mesh at 62 m within 8 %.

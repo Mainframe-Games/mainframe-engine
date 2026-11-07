@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** accepted (CPU side built: generator, presets, parity tests; `Tree3D` and rendering in a later wave)
 - **Milestone:** Gameplay toolkit G8b (G8b.1–G8b.2 CPU parts), forest slice wave 1 lane B
-- **Spec:** docs/design/future/procedural-trees.md; current state in docs/design/procedural-trees.md; follows ADR 0149
+- **Spec:** docs/design/procedural-trees.md#changes-from-the-proposal; current state in docs/design/procedural-trees.md; follows ADR 0149
 
 ## Context
 

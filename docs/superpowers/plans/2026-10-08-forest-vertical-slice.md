@@ -15,7 +15,7 @@
 
 **Specs:**
 - `docs/design/future/terrain.md` (G8a)
-- `docs/design/future/procedural-trees.md` (G8b)
+- `docs/design/procedural-trees.md` (G8b; the proposal it was, since removed)
 - `docs/design/future/water.md` (G8c)
 - `docs/design/forest.md` (G8d; the proposal moved there when it shipped)
 - `docs/design/future/rendering-features.md` (G6.1/G6.2)

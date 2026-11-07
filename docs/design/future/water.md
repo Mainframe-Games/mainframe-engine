@@ -5,7 +5,7 @@
 `IEditorViewportTool`), [Rendering features](../rendering-features.md) (G6.1 PBR and G6.2 IBL for `WaterMaterial3D`;
 G6.3 particles for spray; G6.6's depth prepass), [Shaders](../shaders.md)
 ([ADR 0144](../../../memory/decisions/0144-slang-shader-language.md)) · **Related:**
-[Procedural trees](procedural-trees.md) (G8b: the shared wind), [Forest showcase](../forest.md) (G8d: streams,
+[Procedural trees](../procedural-trees.md) (G8b: the shared wind), [Forest showcase](../forest.md) (G8d: streams,
 fog), [Editor viewport tools](../editor.md#viewport-tools) (G7: handle style), [Mobile core](mobile.md) (TBDR rules),
 [Audio](../audio.md), [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
 
@@ -613,7 +613,7 @@ settled; **Decision:** is what to build.
 
 ## Related
 
-- [Terrain](terrain.md) (G8a), [Procedural trees](procedural-trees.md) (G8b), [Forest showcase](../forest.md)
+- [Terrain](terrain.md) (G8a), [Procedural trees](../procedural-trees.md) (G8b), [Forest showcase](../forest.md)
   (G8d), [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
 - [Rendering features](../rendering-features.md) (G6), [Rendering backend abstraction](rendering-backend-abstraction.md)
   (M11), [Mobile core](mobile.md) (M12), [Editor viewport tools](../editor.md#viewport-tools) (G7)
