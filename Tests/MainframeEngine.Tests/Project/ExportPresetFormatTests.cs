@@ -174,7 +174,8 @@ public sealed class ExportPresetFormatTests
         var json = JsonNode.Parse(Text(older))!;
 
         Assert.Equal(ProjectSettingsFormat.Current, (int)json["format"]!);
-        Assert.Equal(6, ProjectSettingsFormat.Current);
+        Assert.Equal(7, ProjectSettingsFormat.Current);
+        Assert.Null(json["navigation"]);
         Assert.Null(json["export"]);
         Assert.True(older.PackKeyUnsaved); // the 5 → 6 step generated a key the file does not have yet
         Assert.True(PackKeys.TryParse(older.PackKey, out _));

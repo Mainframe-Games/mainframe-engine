@@ -11,6 +11,7 @@ public sealed class NavigationServer2D : IFixedStepServer, IFrameServer
 {
     private readonly Dictionary<World2D, NavigationMap2D> _maps = [];
     private readonly List<NavigationMap2D> _mapList = [];
+    private readonly NavigationQueryWorkers _workers = new();
     private bool _syncedThisFrame;
     private bool _disposed;
 
@@ -22,6 +23,26 @@ public sealed class NavigationServer2D : IFixedStepServer, IFrameServer
     public bool DebugDrawEnabled { get; set; }
 
     public IReadOnlyList<NavigationMap2D> Maps => _mapList;
+
+    /// <summary>
+    /// G3.10: threads that run <see cref="NavigationMap2D.QueryPathAsync"/> requests (default a quarter of the processors,
+    /// 1–4; 0 runs them on the main thread at the next sync, with the same results). <c>project.mfproj</c>'s
+    /// <c>navigation.workers</c> sets it in games.
+    /// </summary>
+    public int QueryWorkerCount
+    {
+        get => _workers.WorkerCount;
+        set => _workers.WorkerCount = value;
+    }
+
+    /// <summary>
+    /// G3.10: whether agents whose <see cref="NavigationAgent2D.PathMode"/> is <see cref="NavigationPathMode.ProjectDefault"/>
+    /// path asynchronously (<c>project.mfproj</c>'s <c>navigation.asyncAgents</c>; default off).
+    /// </summary>
+    public bool AsyncAgentsByDefault { get; set; }
+
+    /// <summary>Async requests submitted and not delivered yet (all maps).</summary>
+    public int PendingQueries => _workers.Pending;
 
     /// <summary>The tree's navigation server, registering a default one if there is none.</summary>
     public static NavigationServer2D For(SceneTree tree)
@@ -41,7 +62,7 @@ public sealed class NavigationServer2D : IFixedStepServer, IFrameServer
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (world.NavigationMap is { } existing)
             return existing;
-        var map = new NavigationMap2D(world);
+        var map = new NavigationMap2D(world) { Workers = _workers, Server = this };
         world.NavigationMap = map;
         _maps.Add(world, map);
         _mapList.Add(map);
@@ -105,6 +126,7 @@ public sealed class NavigationServer2D : IFixedStepServer, IFrameServer
         if (_disposed)
             return;
         _disposed = true;
+        _workers.Complete();
         foreach (var map in _mapList)
             if (ReferenceEquals(map.World.NavigationMap, map))
                 map.World.NavigationMap = null;
@@ -120,5 +142,6 @@ internal static class NavigationMarkers
     public static readonly ProfilerMarker Query = new("Navigation query", ProfilerCategory.Engine, ProfilerMarkerKind.Cpu, "", 0);
     public static readonly ProfilerMarker Bake = new("Navigation bake", ProfilerCategory.Loading, ProfilerMarkerKind.Cpu, "", 0);
     public static readonly ProfilerMarker Avoidance = new("Navigation avoidance", ProfilerCategory.Engine, ProfilerMarkerKind.Cpu, "", 0);
+    public static readonly ProfilerMarker AsyncWait = new("Navigation async wait", ProfilerCategory.Engine, ProfilerMarkerKind.Cpu, "", 0);
     public static readonly ProfilerMarker DebugDraw = new("Navigation debug draw", ProfilerCategory.Render, ProfilerMarkerKind.Cpu, "", 0);
 }

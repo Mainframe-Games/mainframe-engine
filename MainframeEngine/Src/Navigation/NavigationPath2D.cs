@@ -72,6 +72,20 @@ public sealed class NavigationPath2D
 
     internal void SetCount(int count) => _count = count;
 
+    /// <summary>G3.10: this path becomes a copy of <paramref name="other"/> (an async request's delivery; grows, never allocates once warm).</summary>
+    internal void CopyFrom(NavigationPath2D other)
+    {
+        Array.Clear(_owners, 0, _count);
+        EnsureCapacity(other._count);
+        other._points.AsSpan(0, other._count).CopyTo(_points);
+        other._cells.AsSpan(0, other._count).CopyTo(_cells);
+        other._owners.AsSpan(0, other._count).CopyTo(_owners);
+        _count = other._count;
+        Status = other.Status;
+        Region = other.Region;
+        MapIteration = other.MapIteration;
+    }
+
     internal Span<Vector2> PointBuffer => _points;
 
     internal Span<Vector2I> CellBuffer => _cells;

@@ -35,8 +35,6 @@ public partial class AStarGrid2D
     private int _weightedCount;
     private int _solidCount;
     private readonly bool _builtInCosts;
-    private int _end;
-    private int _expanded;
 
     public AStarGrid2D()
     {
@@ -238,41 +236,48 @@ public partial class AStarGrid2D
     /// <paramref name="path"/>; <paramref name="count"/> is the number written, or the size needed for
     /// <see cref="GridPathStatus.BufferTooSmall"/>. Allocation-free.
     /// </summary>
-    public GridPathStatus GetIdPath(Vector2I from, Vector2I to, Span<Vector2I> path, out int count, bool allowPartialPath = false)
+    public GridPathStatus GetIdPath(Vector2I from, Vector2I to, Span<Vector2I> path, out int count, bool allowPartialPath = false) =>
+        GetIdPath(from, to, path, out count, allowPartialPath, _search);
+
+    /// <summary>
+    /// G3.10: the same query on a caller's scratch, so several threads can search one grid that nothing changes meanwhile
+    /// (each with its own <see cref="GridSearch"/> of at least the grid's cell count).
+    /// </summary>
+    internal GridPathStatus GetIdPath(Vector2I from, Vector2I to, Span<Vector2I> path, out int count, bool allowPartialPath, GridSearch search)
     {
-        var status = Solve(from, to, allowPartialPath, out var last);
+        var status = Solve(search, from, to, allowPartialPath, out var last);
         count = 0;
         if (status is GridPathStatus.NotFound or GridPathStatus.InvalidPoint)
             return status;
-        count = PathLength(last);
+        count = PathLength(search, last);
         if (count > path.Length)
             return GridPathStatus.BufferTooSmall;
-        WritePath(last, path[..count]);
+        WritePath(search, last, path[..count]);
         return status;
     }
 
     /// <summary>The cell centres of the path (see <see cref="GetIdPath(Vector2I, Vector2I, Span{Vector2I}, out int, bool)"/>).</summary>
     public GridPathStatus GetPointPath(Vector2I from, Vector2I to, Span<Vector2> path, out int count, bool allowPartialPath = false)
     {
-        var status = Solve(from, to, allowPartialPath, out var last);
+        var status = Solve(_search, from, to, allowPartialPath, out var last);
         count = 0;
         if (status is GridPathStatus.NotFound or GridPathStatus.InvalidPoint)
             return status;
-        count = PathLength(last);
+        count = PathLength(_search, last);
         if (count > path.Length)
             return GridPathStatus.BufferTooSmall;
-        WritePoints(last, path[..count]);
+        WritePoints(_search, last, path[..count]);
         return status;
     }
 
     /// <summary>The cells of the path as a new array (empty when there is none). Allocates: for tools and tests.</summary>
     public Vector2I[] GetIdPath(Vector2I from, Vector2I to, bool allowPartialPath = false)
     {
-        var status = Solve(from, to, allowPartialPath, out var last);
+        var status = Solve(_search, from, to, allowPartialPath, out var last);
         if (status is GridPathStatus.NotFound or GridPathStatus.InvalidPoint)
             return [];
-        var path = new Vector2I[PathLength(last)];
-        WritePath(last, path);
+        var path = new Vector2I[PathLength(_search, last)];
+        WritePath(_search, last, path);
         return path;
     }
 
@@ -403,7 +408,7 @@ public partial class AStarGrid2D
     }
 
     // Runs the search; last is the path's last cell (the target, or the closest reachable cell for Partial).
-    private GridPathStatus Solve(Vector2I from, Vector2I to, bool allowPartial, out int last)
+    private GridPathStatus Solve(GridSearch search, Vector2I from, Vector2I to, bool allowPartial, out int last)
     {
         RequireClean();
         last = -1;
@@ -415,8 +420,8 @@ public partial class AStarGrid2D
         var end = Index(to.X, to.Y);
         if (start == end)
         {
-            _search.Begin();
-            _search.Open(start, 0f, 0f, -1);
+            search.Begin();
+            search.Open(start, 0f, 0f, -1);
             last = start;
             return GridPathStatus.Found;
         }
@@ -425,14 +430,14 @@ public partial class AStarGrid2D
         if (endSolid && !allowPartial)
             return GridPathStatus.NotFound;
 
-        _end = end;
-        var found = JumpingEnabled ? SolveJps(start, to, out last) : SolveAStar(start, to, out last);
+        search.End = end;
+        var found = JumpingEnabled ? SolveJps(search, start, to, out last) : SolveAStar(search, start, to, out last);
         if (found)
             return GridPathStatus.Found;
         if (!allowPartial)
             return GridPathStatus.NotFound;
         if (JumpingEnabled)
-            SolveAStar(start, to, out last); // JPS skips cells: the closest reachable cell comes from a plain search
+            SolveAStar(search, start, to, out last); // JPS skips cells: the closest reachable cell comes from a plain search
         return last >= 0 ? GridPathStatus.Partial : GridPathStatus.NotFound;
     }
 
@@ -456,9 +461,8 @@ public partial class AStarGrid2D
         };
     }
 
-    private bool SolveAStar(int start, Vector2I to, out int closest)
+    private bool SolveAStar(GridSearch search, int start, Vector2I to, out int closest)
     {
-        var search = _search;
         search.Begin();
         search.Open(start, 0f, Estimate(start, to), -1);
         closest = start;
@@ -466,19 +470,19 @@ public partial class AStarGrid2D
         var diagonal = Distance(_computeHeuristic, 1, 1);
         var directions = _diagonalMode == GridDiagonalMode.Never ? 4 : 8;
         var limit = MaxSearchNodes;
-        _expanded = 0;
+        search.Expanded = 0;
         while (search.OpenCount > 0)
         {
             var node = search.PopMin();
-            if (node == _end)
+            if (node == search.End)
             {
                 closest = node;
                 return true;
             }
 
-            if (IsCloser(node, closest))
+            if (IsCloser(search, node, closest))
                 closest = node;
-            if (limit > 0 && ++_expanded >= limit)
+            if (limit > 0 && ++search.Expanded >= limit)
                 return false;
 
             var x = _region.Position.X + node % _width;
@@ -505,29 +509,29 @@ public partial class AStarGrid2D
     }
 
     // Godot's partial-path rule: the visited cell with the lowest estimate, then the lowest cost, then the lowest index.
-    private bool IsCloser(int node, int best)
+    private static bool IsCloser(GridSearch search, int node, int best)
     {
-        var h = _search.H(node);
-        var bh = _search.H(best);
+        var h = search.H(node);
+        var bh = search.H(best);
         if (h != bh)
             return h < bh;
-        var g = _search.G(node);
-        var bg = _search.G(best);
+        var g = search.G(node);
+        var bg = search.G(best);
         if (g != bg)
             return g < bg;
         return node < best;
     }
 
-    private int PathLength(int last)
+    private int PathLength(GridSearch search, int last)
     {
         var length = 1;
         var node = last;
-        var parent = _search.Parent(node);
+        var parent = search.Parent(node);
         while (parent >= 0)
         {
             length += Steps(parent, node);
             node = parent;
-            parent = _search.Parent(node);
+            parent = search.Parent(node);
         }
 
         return length;
@@ -541,12 +545,12 @@ public partial class AStarGrid2D
         return Math.Max(Math.Abs(b.X - a.X), Math.Abs(b.Y - a.Y));
     }
 
-    private void WritePath(int last, Span<Vector2I> path)
+    private void WritePath(GridSearch search, int last, Span<Vector2I> path)
     {
         var index = path.Length - 1;
         var cell = CellOf(last);
         path[index--] = cell;
-        for (var parent = _search.Parent(last); parent >= 0; parent = _search.Parent(parent))
+        for (var parent = search.Parent(last); parent >= 0; parent = search.Parent(parent))
         {
             var from = CellOf(parent);
             var dx = Math.Sign(from.X - cell.X);
@@ -559,12 +563,12 @@ public partial class AStarGrid2D
         }
     }
 
-    private void WritePoints(int last, Span<Vector2> path)
+    private void WritePoints(GridSearch search, int last, Span<Vector2> path)
     {
         var index = path.Length - 1;
         var cell = CellOf(last);
         path[index--] = GetPointPosition(cell);
-        for (var parent = _search.Parent(last); parent >= 0; parent = _search.Parent(parent))
+        for (var parent = search.Parent(last); parent >= 0; parent = search.Parent(parent))
         {
             var from = CellOf(parent);
             var dx = Math.Sign(from.X - cell.X);

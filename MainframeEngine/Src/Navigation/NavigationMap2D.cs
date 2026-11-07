@@ -35,6 +35,9 @@ public sealed class NavigationMap2D
 
     public World2D World { get; }
 
+    /// <summary>The server that made the map (null for a map made by hand).</summary>
+    public NavigationServer2D? Server { get; internal set; }
+
     /// <summary>The viewport whose <see cref="SceneViewport.DebugLines"/> the debug draw writes into (the first region's or agent's).</summary>
     public SceneViewport? Viewport { get; internal set; }
 
@@ -227,6 +230,9 @@ public sealed class NavigationMap2D
 
     internal void Sync()
     {
+        // G3.10: requests submitted before this sync finish and are delivered first; only then may the map change.
+        Workers.Complete();
+
         // G3.9: moved regions and links rebuild the mesh (polled: cheaper than per-node notifications, and same-tick).
         for (var i = 0; i < _polygonRegions.Count; i++)
         {
@@ -296,6 +302,32 @@ public sealed class NavigationMap2D
     {
         ArgumentNullException.ThrowIfNull(result);
         using var scope = NavigationMarkers.Query.Auto();
+        return Query(query, result, null);
+    }
+
+    /// <summary>
+    /// G3.10: queues <paramref name="query"/> for a worker thread. The result is written into <paramref name="result"/> at
+    /// the map's next sync — never earlier, whatever the threads do — so async paths are as deterministic as
+    /// <see cref="QueryPath"/>'s, one sync later. Do not read <paramref name="result"/> until the request
+    /// <see cref="NavigationPathRequest.IsCompleted"/>. Allocation-free once warm. Main thread.
+    /// </summary>
+    public NavigationPathRequest QueryPathAsync(in NavigationPathQuery2D query, NavigationPath2D result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return Workers.Submit(this, query, result);
+    }
+
+    /// <summary>The server's query workers (one set shared by its maps; a map made without a server gets its own).</summary>
+    internal NavigationQueryWorkers Workers
+    {
+        get => field ??= new NavigationQueryWorkers();
+        set;
+    }
+
+    // The query on a scratch: null = the main thread's (the grids' and the mesh's own); a worker passes its own. Reads the
+    // map only: nothing changes it between syncs, so workers may run this while the main thread queries too.
+    internal GridPathStatus Query(in NavigationPathQuery2D query, NavigationPath2D result, NavigationQueryScratch? scratch)
+    {
         result.Clear();
         result.MapIteration = IterationId;
         var region = FindRegion(query.Start, query.NavigationLayers);
@@ -303,7 +335,9 @@ public sealed class NavigationMap2D
         {
             if (_mesh.PolyCount == 0)
                 return result.Status = GridPathStatus.InvalidPoint;
-            return result.Status = _mesh.Search.FindPath(_mesh, query, result);
+            var meshStatus = (scratch?.Mesh ?? _mesh.Search).FindPath(_mesh, query, result);
+            result.CellBuffer[..result.Count].Clear(); // no cells behind navmesh points
+            return result.Status = meshStatus;
         }
         var grid = region.LiveGrid;
         var startCell = grid.GetPointAt(query.Start);
@@ -329,7 +363,8 @@ public sealed class NavigationMap2D
         int count;
         while (true)
         {
-            status = grid.GetIdPath(startCell, targetCell, result.RawCells, out count, query.AllowPartialPath);
+            status = grid.GetIdPath(startCell, targetCell, result.RawCells, out count, query.AllowPartialPath,
+                scratch?.GridFor(grid) ?? grid.Search);
             if (status != GridPathStatus.BufferTooSmall)
                 break;
             result.EnsureCapacity(count);

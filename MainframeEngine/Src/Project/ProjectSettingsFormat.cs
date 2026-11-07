@@ -17,7 +17,7 @@ public readonly record struct ProjectMigration(int From, Action<JsonObject> Upgr
 public static class ProjectSettingsFormat
 {
     /// <summary>The format this engine writes. Bump it and add a <see cref="ProjectMigration"/> when the layout changes.</summary>
-    public const int Current = 6;
+    public const int Current = 7;
 
     /// <summary>The engine's upgrade steps, ordered by <see cref="ProjectMigration.From"/>.</summary>
     public static IReadOnlyList<ProjectMigration> Migrations { get; } =
@@ -52,6 +52,10 @@ public static class ProjectSettingsFormat
 
         // 5 → 6: the project's pack key (G19 phase 3, ADR 0240), generated once; the file keeps it from its next save.
         new(5, static root => root["packKey"] ??= PackKeys.NewKey()),
+
+        // 6 → 7: the "navigation" section (G3.10). Nothing moves; the bump makes an older editor reject the file instead of
+        // dropping the section on save (as 4 → 5 did for "export").
+        new(6, static _ => { }),
     ];
 
     private static void UpgradeLegacyPaths(JsonNode? node)
@@ -174,6 +178,7 @@ public static class ProjectSettingsFormat
             WriteLoading(w, settings.Loading);
             WriteSaves(w, settings.Saves);
             WriteCrash(w, settings.Crash);
+            WriteNavigation(w, settings.Navigation);
             WriteAutoloads(w, settings.Autoloads);
             WritePlayInstances(w, settings.PlayInstances);
             WriteExport(w, settings.ExportPresets);
@@ -434,6 +439,18 @@ public static class ProjectSettingsFormat
         w.WriteEndObject();
     }
 
+    private static void WriteNavigation(Utf8JsonWriter w, NavigationProjectSettings s)
+    {
+        if (s.Workers is null && !s.AsyncAgents)
+            return;
+        w.WriteStartObject("navigation");
+        if (s.Workers is { } workers)
+            w.WriteNumber("workers", workers);
+        if (s.AsyncAgents)
+            w.WriteBoolean("asyncAgents", true);
+        w.WriteEndObject();
+    }
+
     private static void WriteSaves(Utf8JsonWriter w, SavesProjectSettings s)
     {
         var d = new SavesProjectSettings();
@@ -643,7 +660,7 @@ public static class ProjectSettingsFormat
         {
             var s = new ProjectSettings();
             Known(root, "", "format", "name", "engineVersion", "version", "userDataName", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "ui", "loading", "saves", "crash", "autoloads", "playInstances", "export", "packKey");
+                "audio", "localization", "rendering", "ui", "loading", "saves", "crash", "navigation", "autoloads", "playInstances", "export", "packKey");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
@@ -675,6 +692,8 @@ public static class ProjectSettingsFormat
                 ReadSaves(saves, s.Saves);
             if (Object(root, "crash") is { } crash)
                 ReadCrash(crash, s.Crash);
+            if (Object(root, "navigation") is { } navigation)
+                ReadNavigation(navigation, s.Navigation);
             if (Array(root, "autoloads", "autoloads") is { } autoloads)
                 ReadAutoloads(autoloads, s.Autoloads);
             if (Array(root, "playInstances", "playInstances") is { } instances)
@@ -858,6 +877,14 @@ public static class ProjectSettingsFormat
             Known(o, "loading.", "async", "screen");
             s.Async = Bool(o, "async", "loading.async", s.Async);
             s.Screen = String(o, "screen", "loading.screen") ?? s.Screen;
+        }
+
+        private void ReadNavigation(JsonObject o, NavigationProjectSettings s)
+        {
+            Known(o, "navigation.", "workers", "asyncAgents");
+            if (o["workers"] is not null)
+                s.Workers = (int)Long(o, "workers", "navigation.workers", 0, 0, 64);
+            s.AsyncAgents = Bool(o, "asyncAgents", "navigation.asyncAgents", s.AsyncAgents);
         }
 
         private void ReadSaves(JsonObject o, SavesProjectSettings s)
