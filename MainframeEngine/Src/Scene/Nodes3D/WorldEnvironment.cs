@@ -118,6 +118,14 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     [Export(Range = "0,1,0.01")]
     public float WindTurbulence { get; set; } = 0.4f;
 
+    /// <summary>
+    /// Gusts on the simple wind (G8e.5, ADR 0278; 0..1, 0 = none): grass and foliage without branch pivots sway with the
+    /// same slow gust field that rolls through hierarchical trees, their strength varying by ± this fraction across the
+    /// world and over time. Trees with pivots always gust (± 40 %).
+    /// </summary>
+    [Export(Range = "0,1,0.01")]
+    public float WindGusts { get; set; }
+
     /// <summary>Distance and height fog over every lit surface (Godot's <c>fog_enabled</c>).</summary>
     [ExportGroup("Fog")]
     [Export]
@@ -229,7 +237,7 @@ public class WorldEnvironment : Node, IRenderResourceOwner
         var start = volumetricFog && VolumetricFogSettings.Active ? VolumetricFogSettings.Length : 0f;
         return new FrameEnvironment(
             new Vector4(dir, WindStrength),
-            new Vector4(WindFrequency, WindTurbulence, 24f, 0f),
+            new Vector4(WindFrequency, WindTurbulence, 24f, Math.Clamp(WindGusts, 0f, 1f)),
             new Vector4(fog, FogEnabled ? 1f + start : 0f),
             new Vector4(FogDensity, FogHeight, FogHeightDensity, FogSunScatter));
     }

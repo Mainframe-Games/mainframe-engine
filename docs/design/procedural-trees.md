@@ -365,7 +365,8 @@ its level-2 branch's. Terminal continuations belong to their parent's level; tru
 ≥ 1 000). `windHierarchy` (`include/wind.slang`) applies, as rotations (branches keep their length): the twig bend
 about pivot 2, the branch bend about pivot 1 (axis `cross(branch, wind)`, a lean plus an oscillation phased per
 branch), the trunk sway about the instance origin (∝ height, `FoliageMaterial3D.WindTrunkSway`), a gust noise rolling
-along the wind in world XZ (simplex noise, no texture), then Ez Tree's leaf flutter. Without the streams
+along the wind in world XZ (simplex noise, no texture; `windGust`, which grass shares through
+`WorldEnvironment.WindGusts`, ADR 0278), then Ez Tree's leaf flutter. Without the streams
 (`Custom1.w = 0`) the old wind runs. The colour pass, the prepass (also at last frame's wind for motion vectors) and both
 foliage casters run it. Instances outside their level's range skip it (they collapse first).
 
