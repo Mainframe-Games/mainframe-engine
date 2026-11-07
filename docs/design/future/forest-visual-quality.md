@@ -4,7 +4,7 @@
 **Depends on:** [Forest showcase](../forest.md) (G8d); ADR 0163 (the
 post-processing system: `PostEffect` stages `AfterPrepass` / `BeforeTonemap` / `AfterTonemap`, `SceneTextures`, the
 depth prepass, motion vectors and projection jitter); SSAO/GTAO ([G6.6](../post-processing.md#ssao)) and TAA
-([G8d.8](../forest.md#rendering-phases-g8d1g8d8)), both now on Vulkan ahead of M11; [Procedural trees](procedural-trees.md)
+([G8d.8](../forest.md#rendering-phases-g8d1g8d8)), both now on Vulkan ahead of M11; [Procedural trees](../procedural-trees.md)
 (G8b: `TreeImpostor`); [Water](water.md) (G8c: refraction, SSR, falls) · **Related:**
 [Rendering features](../rendering-features.md) (G6.3 particles, G6.4 LOD), [Terrain](terrain.md) (G8a),
 [Rendering backend abstraction](rendering-backend-abstraction.md) (M11: compute), [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md),
@@ -469,7 +469,7 @@ and its edges glow.
   `VisibilityRangeEndMargin` and `VisibilityRangeFadeMode` (`Disabled`, `Self`). Inside the margin both levels draw;
   each instance computes its own distance in the shader and discards against complementary dither thresholds
   (`TreeScatter` chunks overlap their batches in the band). TAA turns the dither into a fade.
-- **`TreeImpostor`** exactly as [procedural-trees.md → TreeImpostor](procedural-trees.md#treeimpostor) designs it:
+- **`TreeImpostor`** exactly as [procedural-trees.md → TreeImpostor](../procedural-trees.md#impostors-and-per-instance-levels) designs it:
   hemi-octahedral 8 × 8 views in a 1024² atlas (albedo + alpha, normal + depth), lit live, chained after LOD2 at
   `ImpostorScreenHeight` 120 px, dithered switch. G8e adds an impostor shadow caster for cascades 2–3 and the far tile,
   and probe sampling at the depth-reconstructed position.
@@ -642,7 +642,7 @@ Refresh `.spv` and `shaders.lock` in every phase that touches shaders.
 ## Related
 
 [Milestones](../../milestones.md#gameplay-toolkit-) · [Forest showcase (G8d)](../forest.md) ·
-[Forest (current state)](../forest.md) · [Procedural trees (G8b)](procedural-trees.md) · [Water (G8c)](water.md) ·
+[Forest (current state)](../forest.md) · [Procedural trees (G8b)](../procedural-trees.md) · [Water (G8c)](water.md) ·
 [Terrain (G8a)](terrain.md) · [Rendering features (G6)](../rendering-features.md) · [Rendering backend abstraction
 (M11)](rendering-backend-abstraction.md) · [Lighting](../lighting.md) · [Shadow system](../shadow-system.md) ·
 [Color pipeline](../color-pipeline.md) · [Sky](../sky.md) · [Materials & meshes](../materials-and-meshes.md) ·

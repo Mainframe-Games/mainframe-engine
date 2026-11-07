@@ -353,7 +353,7 @@ comes from the value type and the `[Export]` hints:
   header RML (elements with `data-action` call back), hide generated rows and act through the scene's history. The
   editor's own `MissingNodeInspector` explains missing types, `AudioBusLayoutInspector` edits bus layouts,
   `LightProbeVolumeInspector` shows a probe volume's bake state with a Bake Lighting button (ADR 0170), and
-  `Tree3DInspector` a tree's preset, seed, style, LOD table and Bake ([Procedural trees → Inspector](procedural-trees.md#inspector)). They are
+  `Tree3DInspector` a tree's preset, seed, style, LOD table, Bake and Bake Variants ([Procedural trees → Inspector](procedural-trees.md#inspector)). They are
   found in loaded assemblies that reference the editor, game assemblies included
   ([Resource files and custom inspectors](#resource-files-and-custom-inspectors)).
 
@@ -1033,8 +1033,10 @@ step; ADR 0212, [Physics joints → Ragdolls](physics-joints.md#ragdolls)). The 
 weighted cells, source, bake time, "out of date") above a `NavigationGrid2D`'s rows; both replace `Data` as one undo
 step, and only the current source's bake rows show ([Navigation → Editor](navigation.md#editor)).
 `Tree3DInspector` (G8b.3, ADR 0271) puts a Preset dropdown with an Ez Tree JSON import, a Seed field with a dice, the
-Style toggle, a wind preview, a LOD table (an eye per level forces it, `Tree3D.ForceLod`) and Bake with the bake's
-status above a `Tree3D`'s rows; `TreeOptionsInspector` names the `Level` elements through **`ElementLabel`** and
+Style toggle, a wind preview, a LOD table (an eye per level forces it, `Tree3D.ForceLod`), Bake with the bake's
+status, and a Variants count with Create Collider and Bake Variants (G8b.7, ADR 0274: `TreeVariants` writes tree scenes
+and a `ScatterObjectType` for the Terrain dock's Objects mode; [Procedural trees → Variants and scatter
+scenes](procedural-trees.md#variants-and-scatter-scenes)) above a `Tree3D`'s rows; `TreeOptionsInspector` names the `Level` elements through **`ElementLabel`** and
 **`ElementSummary`** (default methods: an array element's title and the key values beside it), and
 `TreeLevelInspector` hides the fields a level does not use ([Procedural trees → Inspector](procedural-trees.md#inspector)).
 A header may hold text fields: `data-header-input="name"` sends `name=text` to `OnAction` on Enter or focus loss, and

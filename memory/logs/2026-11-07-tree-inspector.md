@@ -8,7 +8,7 @@ summary: >-
 
 # 2026-11-07: Tree inspector (G8b.3)
 
-Branch `feature/tree-inspector`, cut from `origin/main` (7ca385ce). Proposal: [Procedural trees → Editor](../../docs/design/future/procedural-trees.md#editor).
+Branch `feature/tree-inspector`, cut from `origin/main` (7ca385ce). Proposal: [Procedural trees → Editor](../../docs/design/procedural-trees.md#changes-from-the-proposal) (the proposal, since removed).
 As built: [Procedural trees → Inspector](../../docs/design/procedural-trees.md#inspector).
 
 ## What changed
