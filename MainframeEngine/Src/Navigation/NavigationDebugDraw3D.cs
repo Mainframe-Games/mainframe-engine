@@ -3,7 +3,8 @@ using System.Numerics;
 namespace MainframeEngine;
 
 /// <summary>
-/// G3.11: the 3D navigation debug draw into a viewport's <see cref="SceneViewport.DebugLines"/>: each grid's outline on its
+/// G3.11: the 3D navigation debug draw into a viewport's <see cref="SceneViewport.DebugLines"/>: each navmesh region's
+/// polygon edges (G3.12), each grid's outline on its
 /// plane, solid cells (outline and cross) and weighted cells (two dashes per side) a few millimetres above it — the cells
 /// only while a grid has at most <see cref="NavigationDebugDraw.MaxDetailedCells"/> — and each agent's path, next position
 /// and target, in <see cref="NavigationDebugColors"/>. Allocation-free.
@@ -28,6 +29,9 @@ internal static class NavigationDebugDraw3D
             var regions = map.RegionList;
             for (var i = 0; i < regions.Count; i++)
                 DrawGrid(lines, regions[i]);
+            var meshes = map.MeshRegionList;
+            for (var i = 0; i < meshes.Count; i++)
+                DrawMesh(lines, meshes[i]);
         }
 
         var agents = map.AgentList;
@@ -69,6 +73,31 @@ internal static class NavigationDebugDraw3D
                     lines.AddLine(a, a + (new Vector3(b.X, y, a.Z) - a) * 0.4f, weighted);
                     lines.AddLine(b, b + (new Vector3(a.X, y, b.Z) - b) * 0.4f, weighted);
                 }
+            }
+        }
+    }
+
+    /// <summary>G3.12: a navmesh region's polygons (edges, faded while disabled), a few millimetres above them.</summary>
+    private static void DrawMesh(DebugLines lines, NavigationRegion3D region)
+    {
+        if (region.NavigationMesh is not { } mesh || !region.Runtime.IsLoaded)
+            return;
+        var color = NavigationDebugColors.Region;
+        if (!region.Enabled)
+            color.W *= 0.3f;
+        var transform = region.Runtime.Placed;
+        var vertices = mesh.Vertices;
+        var lift = new Vector3(0f, Lift, 0f);
+        foreach (var polygon in mesh.Polygons)
+        {
+            if (polygon is not { Length: >= 3 })
+                continue;
+            for (var k = 0; k < polygon.Length; k++)
+            {
+                int a = polygon[k], b = polygon[(k + 1) % polygon.Length];
+                if ((uint)a >= (uint)vertices.Length || (uint)b >= (uint)vertices.Length)
+                    continue;
+                lines.AddLine(transform.TransformPoint(vertices[a]) + lift, transform.TransformPoint(vertices[b]) + lift, color);
             }
         }
     }

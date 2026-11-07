@@ -39,10 +39,10 @@ public sealed class NavigationPath3D
     /// <summary>The path's points, from the start to the end.</summary>
     public ReadOnlySpan<Vector3> Points => _points.AsSpan(0, _count);
 
-    /// <summary>The grid cells (x, z) behind <see cref="Points"/>.</summary>
+    /// <summary>The grid cells (x, z) behind <see cref="Points"/> (zero on navigation meshes).</summary>
     public ReadOnlySpan<Vector2I> Cells => _flat.Cells;
 
-    /// <summary>The node behind each point (the <see cref="NavigationGrid3D"/>).</summary>
+    /// <summary>The node behind each point (the <see cref="NavigationGrid3D"/> or <see cref="NavigationRegion3D"/>).</summary>
     public ReadOnlySpan<Node?> Owners => _flat.Owners;
 
     public int Count => _count;
@@ -65,6 +65,19 @@ public sealed class NavigationPath3D
     }
 
     internal NavigationPath2D Flat => _flat;
+
+    // G3.12: a navmesh path's points, written by the caller (no cells; every owner the region).
+    internal Span<Vector3> MeshPoints(int count, Node owner)
+    {
+        if (count > _points.Length)
+            Array.Resize(ref _points, Math.Max(count, _points.Length * 2));
+        _flat.EnsureCapacity(count);
+        _flat.CellBuffer[..count].Clear();
+        _flat.OwnerBuffer[..count].Fill(owner);
+        _flat.SetCount(count);
+        _count = count;
+        return _points.AsSpan(0, count);
+    }
 
     // Lifts the flat path onto the grid's plane at `height` (a grid region is flat: every point is on it).
     internal void Lift(float height)

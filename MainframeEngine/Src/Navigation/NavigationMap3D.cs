@@ -14,6 +14,7 @@ public sealed class NavigationMap3D
     private readonly List<NavigationGrid3D> _pendingAdd = [];
     private readonly List<NavigationGrid3D> _pendingRemove = [];
     private readonly List<NavigationAgent3D> _agents = [];
+    private readonly List<NavigationRegion3D> _meshRegions = [];
     private bool _dirty;
 
     internal NavigationMap3D(World3D world)
@@ -32,6 +33,11 @@ public sealed class NavigationMap3D
     /// <summary>The grid regions in use, in registration order (changes appear after the next sync).</summary>
     public IReadOnlyList<NavigationGrid3D> Regions => _regions;
 
+    /// <summary>G3.12: the navigation mesh regions in the map's world, in registration order.</summary>
+    public IReadOnlyList<NavigationRegion3D> MeshRegions => _meshRegions;
+
+    internal List<NavigationRegion3D> MeshRegionList => _meshRegions;
+
     /// <summary>The agents in the map's world.</summary>
     public IReadOnlyList<NavigationAgent3D> Agents => _agents;
 
@@ -39,7 +45,7 @@ public sealed class NavigationMap3D
 
     internal List<NavigationAgent3D> AgentList => _agents;
 
-    internal bool IsEmpty => _regions.Count == 0 && _pendingAdd.Count == 0 && _agents.Count == 0;
+    internal bool IsEmpty => _regions.Count == 0 && _pendingAdd.Count == 0 && _agents.Count == 0 && _meshRegions.Count == 0;
 
     /// <summary>Applies pending changes now (tools and tests; the server syncs every tick).</summary>
     public void ForceSync() => Sync();
@@ -59,6 +65,19 @@ public sealed class NavigationMap3D
         if (!_pendingAdd.Remove(region) && _regions.Contains(region) && !_pendingRemove.Contains(region))
             _pendingRemove.Add(region);
         _dirty = true;
+    }
+
+    internal void AddMeshRegion(NavigationRegion3D region)
+    {
+        if (!_meshRegions.Contains(region))
+            _meshRegions.Add(region);
+        _dirty = true;
+    }
+
+    internal void RemoveMeshRegion(NavigationRegion3D region)
+    {
+        if (_meshRegions.Remove(region))
+            _dirty = true;
     }
 
     internal void AddAgent(NavigationAgent3D agent)
@@ -82,6 +101,10 @@ public sealed class NavigationMap3D
                 _dirty = true;
         }
 
+        for (var i = 0; i < _meshRegions.Count && !_dirty; i++)
+            if (_meshRegions[i].GlobalTransform != _meshRegions[i].Runtime.Placed)
+                _dirty = true; // a moved navmesh region
+
         if (!_dirty)
             return;
         using var scope = NavigationMarkers.Sync.Auto();
@@ -104,6 +127,8 @@ public sealed class NavigationMap3D
         _pendingAdd.Clear();
         for (var i = 0; i < _regions.Count; i++)
             changed |= _regions[i].ApplyPending();
+        for (var i = 0; i < _meshRegions.Count; i++)
+            changed |= _meshRegions[i].ApplyPending();
         if (changed)
             IterationId++;
     }
@@ -122,7 +147,18 @@ public sealed class NavigationMap3D
         result.MapIteration = IterationId;
         var region = FindRegion(query.Start, query.NavigationLayers);
         if (region is null)
-            return result.Status = GridPathStatus.InvalidPoint;
+        {
+            // G3.12: the navigation mesh region closest to the start (within its search extents) answers.
+            var mesh = FindMeshRegion(query.Start, query.NavigationLayers);
+            if (mesh is null)
+                return result.Status = GridPathStatus.InvalidPoint;
+            var meshStatus = mesh.Runtime.FindPath(query.Start, query.Target, query.AllowPartialPath, query.Postprocessing, result, mesh);
+            if (meshStatus is GridPathStatus.NotFound or GridPathStatus.InvalidPoint)
+                result.Clear();
+            result.MapIteration = IterationId;
+            return result.Status = meshStatus;
+        }
+
         var grid = region.LiveGrid;
         var flat = result.Flat;
         var flatQuery = new NavigationPathQuery2D(new Vector2(query.Start.X, query.Start.Z), new Vector2(query.Target.X, query.Target.Z),
@@ -161,6 +197,40 @@ public sealed class NavigationMap3D
             {
                 bestDistance = d;
                 best = candidate;
+            }
+        }
+
+        for (var i = 0; i < _meshRegions.Count; i++)
+        {
+            var mesh = _meshRegions[i];
+            if (!mesh.Enabled || (mesh.NavigationLayers & navigationLayers) == 0 || !mesh.Runtime.ClosestPoint(point, out var candidate, out _))
+                continue;
+            var d = Vector3.DistanceSquared(candidate, point);
+            if (d < bestDistance)
+            {
+                bestDistance = d;
+                best = candidate;
+            }
+        }
+
+        return best;
+    }
+
+    // The enabled navmesh region on the layers whose closest point to `position` is nearest (ties: registration order).
+    internal NavigationRegion3D? FindMeshRegion(Vector3 position, uint layers)
+    {
+        NavigationRegion3D? best = null;
+        var bestDistance = float.PositiveInfinity;
+        for (var i = 0; i < _meshRegions.Count; i++)
+        {
+            var mesh = _meshRegions[i];
+            if (!mesh.Enabled || (mesh.NavigationLayers & layers) == 0 || !mesh.Runtime.ClosestPoint(position, out var closest, out _))
+                continue;
+            var d = Vector3.DistanceSquared(closest, position);
+            if (d < bestDistance)
+            {
+                bestDistance = d;
+                best = mesh;
             }
         }
 
