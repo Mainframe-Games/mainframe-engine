@@ -22,7 +22,8 @@ changes merged since then are in `just state-pending`.
 - **Tests:** thousands of engine, editor, video and Demo unit tests; ~200 render tests (goldens `moltenvk` + `lavapipe`,
   validation gate, 0-B allocation gate); benchmarks with `baseline.json`; QA scripts (`just qa`, `qa-editor`,
   `qa-projects`, `qa-settings`). Lavapipe runs locally in Docker: `just render-tests-linux`.
-- **CI:** `ci.yml` (build-test ×3 OS, format, shaders, render-tests on lavapipe, template smoke, `ci-success`),
+- **CI:** `ci.yml` (build-test ×3 OS, format, shaders, render-tests on lavapipe, template smoke, a NativeAOT export
+  per OS, `ci-success`),
   `publish.yml`, `natives.yml`. Jobs fetch only the LFS files they need, cached by object ID. GitHub Actions
   minutes are scarce: run things locally (Docker for Linux) first.
 - **Workflow:** Mainframe workflow v1.0.0 (ADR 0233): `.agents/workflow.md`, `mf-*` skills, `check.sh` in CI.
@@ -76,12 +77,14 @@ changes merged since then are in `just state-pending`.
 
 Priorities, not a feature list: what remains inside each milestone is its rows in `docs/milestones.md`.
 
-1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 4 NativeAOT (owner: here or M12.6).
+1. The Forest frame budget (G8e): a quiet-machine `forest-bench` baseline, then GPU culling for trees
+   (`docs/design/forest.md#performance`).
 2. The gameplay toolkit's open rows (`docs/milestones.md#gameplay-toolkit-`), owner-pending ones first.
 3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (`just bench` prints `NEW` for each
    benchmark not in it yet).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
-5. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first); follow the
+5. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first; M12.6's AOT work
+   builds on G19 phase 4's NativeAOT exports, ADR 0259); follow the
    mobile-ready plumbing checklist in `memory/context/lane-agent-brief.md` in any lane meanwhile.
 6. M13 — mobile platform services (`docs/design/future/mobile-services.md`).
 7. User actions: code signing/notarization for the macOS editor build.
