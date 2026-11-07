@@ -290,6 +290,36 @@ The timeline component is shared with the song editor: `TimelineZoom` (scroll, p
 `ZoomAround`), `TimelineSnap`, `TimelineRuler` (adaptive steps, cached labels), `TimelineHost.Place` (sizes the canvas
 `SubViewport` and publishes it) and `TimelineCanvasBase` (ruler, shaded regions, playhead).
 
+## Humanoid map (G1c)
+
+The first step of [animation authoring](future/animation-authoring.md) (G1.12, ADR 0281), in
+`MainframeEngine/Src/Animation/Humanoid/`. It describes any humanoid `Skeleton3D` in one canonical space, so later steps
+(the pose baker, `mfe anim describe`, checks, the editor's sliders) speak one set of angles on every rig.
+
+- **Canonical space:** Y up, +Z forward, +X the character's left; the canonical T-pose is the reference.
+  `HumanoidBone` is VRM 1.0's humanoid set (55 bones); `HumanoidBones` gives each one's parent, side, mirror, direction
+  and joint axes, and which are required (hips, spine, head, and per side the three leg and three arm bones; VRM's set).
+- **Angles:** `JointAngles` (`Flex`, `Abduct`, `Twist`, degrees), composed intrinsically twist → abduct → flex about the
+  bone's joint axes; right-side axes mirror the left ones, so equal numbers are equal motions on both sides; hinges
+  (lower legs, lower arms) flex only. `HipsPose` is an offset in metres plus yaw/pitch/roll. `HumanoidPose` holds a whole
+  body; `HumanoidLimits` the range of every component; `HumanoidPoses` the named poses (`tpose`, `stand`, `rest`).
+- **`HumanoidMap.Detect(skeleton, overrides, out report)`:** names first (prefixes such as `mixamorig:`, `DEF-` and
+  `J_Bip_?_` stripped, side tokens split off, tables for VRM/VRoid, Mixamo, Unreal, Blender/Rigify and generic names;
+  numbered spines become Spine/Chest/UpperChest by depth; twist, IK, roll and end bones are skipped), then the skeleton's
+  shape for what names miss (the hips have two similar chains down and one up; the arms branch where two similar chains
+  go sideways), then the `.mfmeta` `humanoid` overrides
+  ([Asset pipeline](asset-pipeline.md#humanoid-map-overrides-g1c)). The `HumanoidMapReport` lists each entry's source
+  and confidence, unmapped rig bones, missing required bones and notes.
+- **`HumanoidRig(skeleton, map)`:** binds a map to the rest pose. The character frame comes from the rest (ankles to
+  hips is up, right to left upper leg is left), so rigs facing any way, in any unit, map the same. Upper and lower legs
+  and arms are straightened to the T-pose by a shortest-arc rest correction (an A-pose rig takes the same angles as a
+  T-pose rig); every other bone keeps its rest relation to its parent, so feet stay flat and the torso keeps its
+  posture. `ToBoneRotation`/`FromBoneRotation` convert one bone; `ApplyPose`/`ReadPose` a whole body (canonical bones
+  the rig lacks pass their rotation on to the next mapped bone); `RestKind` (T, A, other), `RestArmAngle`,
+  `Proportions` (metres) and `MetresPerUnit` describe the rig.
+- **Singularity:** at abduct ±90° (an arm straight up from the T-pose) twist and flex share an axis; reading the angles
+  back then gives twist 0.
+
 ## Guide
 
 [Getting started → Animate a character](../getting-started.md#animate-a-character) walks through exporting from

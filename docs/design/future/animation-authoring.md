@@ -1,7 +1,7 @@
 # Proposal: Animation authoring (Claude-made clips, `mfe`, posing tools)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G1c authoring, G1d posing tools, G1e root
-motion, G1f auto-rigging and non-humanoid rigs) · **Status:** ⬜ planned · **Depends on:**
+motion, G1f auto-rigging and non-humanoid rigs) · **Status:** 🚧 accepted by the owner 2026-11-07 (ADR 0281); G1.12 built · **Depends on:**
 [Keyframe animation](../animation.md) (G1a `Animation`/`AnimationPlayer`, G1b `Skeleton3D`/`Skin`/skinning/import),
 [Asset pipeline](../asset-pipeline.md) (`.mfmeta` settings), [Editor](../editor.md) · **Related:**
 [Editor viewport tools](../editor.md#viewport-tools) (G7: Save as `.mfres`), [Physics](../physics.md) (`CharacterBody3D`),
@@ -504,7 +504,11 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
 
 **G1c**
 
-12. **G1.12 Humanoid map.** `HumanoidBone`, `HumanoidMap.Detect` (name tables, structure), `HumanoidRig` (joint frames,
+12. ✅ **G1.12 Humanoid map.** (Built, ADR 0281, [Animation and skinning → Humanoid map](../animation.md#humanoid-map-g1c).
+    Changes: named poses are a code table, `HumanoidPoses`, not `Assets/Animation/poses.json`; required bones are VRM's
+    set (Chest and Neck optional, noted when missing); only the limb bones are straightened to the T-pose, the rest keep
+    their rest relation to their parent; overrides are read as canonical name → rig name strings, so unknown names get
+    a "did you mean"; the test character is the generated CC0 one.) `HumanoidBone`, `HumanoidMap.Detect` (name tables, structure), `HumanoidRig` (joint frames,
     rest correction, proportions, round trips), `HumanoidLimits`, named poses, `.mfmeta` `humanoid`; test asset; unit tests.
 13. **G1.13 Pose script and baker.** Script model and JSON context, `TwoBoneIk`, arcs, root modes, `PoseBaker` with
     sparse and refinement keys, library writing and `.mfmeta` `libraries`; transform-track `Transitions` and
@@ -547,10 +551,10 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
 
 ## Open questions
 
-1. **Keep the pose script?** Ephemeral by default (keys are the truth). Saving it next to the clip (`jump.pose.json`)
+1. **Keep the pose script?** Answered (owner, 2026-11-07, ADR 0281): no, scripts are input only. Ephemeral by default (keys are the truth). Saving it next to the clip (`jump.pose.json`)
    would document how a clip was made, but it goes stale as soon as someone edits keys; `BakedHash` already tells
    whether a clip was touched.
-2. **`mfe` as the one tool.** Should `mf-l10n` and `mf-shaders` become `mfe l10n …` and `mfe shaders …`? It would give
+2. **`mfe` as the one tool.** Answered (owner, 2026-11-07, ADR 0281): not now; `mfe` starts with `anim`. Should `mf-l10n` and `mf-shaders` become `mfe l10n …` and `mfe shaders …`? It would give
    one entry point; it touches the justfile, `build/Localization.targets` and CI.
 3. **Retargeting.** The humanoid map makes "play this Mixamo clip on that rig" a conversion through canonical angles
    (`describe` then bake on another model). Worth a command (`mfe anim retarget`) once two rigs exist in a project.

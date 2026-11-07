@@ -227,6 +227,13 @@ meshoptimizer (skinned surfaces excepted; ADR 0256). Details:
 [Rendering features → Authored LODs on import](rendering-features.md#authored-lods-on-import) and
 [Generated LODs](rendering-features.md#generated-lods).
 
+#### Humanoid map overrides (G1c)
+
+`"humanoid": { "LeftUpperLeg": "Thigh.L", "LeftLowerLeg": "Shin.L" }` maps canonical humanoid bones to the rig's bones
+by name, winning over what [`HumanoidMap.Detect`](animation.md#humanoid-map-g1c) finds from names and structure; an
+empty name (`"LeftToes": ""`) unmaps a bone. It is written only when set, and nothing reads it at import: detection runs
+on demand, so the setting never changes what imports (ADR 0281).
+
 `PackedScene.Instantiate()` on an imported scene clones the imported template. Exported properties are copied, so
 meshes, materials and textures are shared, and every node is owned by the instance root, as for scene files. A
 scene that instances a model stores only the model's UID and path and the instance's overrides, never mesh data

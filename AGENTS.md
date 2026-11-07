@@ -139,7 +139,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `docs/design/navigation.md`
 - `MainframeEngine/Src/Animation/` — `Animation` (transform, value, bezier, method, audio and event tracks; cubic, transitions),
   `AnimationLibrary`, `AnimationPlayer` (ADRs 0207, 0244), `PropertyBinding`/`AnimationValueOps` (typed property writes),
-  `[AnimationMethod]` (generated invokers, MFG011);
+  `[AnimationMethod]` (generated invokers, MFG011); `Humanoid/` (G1c, ADR 0281: `HumanoidBone` (VRM set), `JointAngles`,
+  `HumanoidMap.Detect` (names, structure, `.mfmeta` `humanoid` overrides), `HumanoidRig` (canonical angles ↔ rig rotations),
+  `HumanoidLimits`, `HumanoidPoses`);
   `Scene/Nodes3D/{Skeleton3D,Skin,BoneAttachment3D}.cs`; compute pre-skinning in `Rendering/Meshes/MeshSkinning.cs`; skinned
   glTF/FBX import (ADR 0208). See `docs/design/animation.md`
 - `MainframeEngine/Src/Rendering/Resources/`, `Rendering/Meshes/` — `Mesh`/primitives, `StandardMaterial3D`, `Texture2D`;

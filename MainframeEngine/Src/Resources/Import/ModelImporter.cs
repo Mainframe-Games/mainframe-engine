@@ -115,6 +115,13 @@ public sealed record ModelImportSettings
     /// </summary>
     public bool GenerateLods { get; init; }
 
+    /// <summary>
+    /// G1c (ADR 0281): humanoid map overrides, canonical bone name → rig bone name (<c>"humanoid": { "LeftUpperLeg":
+    /// "Thigh.L" }</c>). They win over <see cref="HumanoidMap.Detect"/>'s names and structure; an empty rig name unmaps the
+    /// bone. Detection runs on demand, never at import, so this does not change what imports.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Humanoid { get; init; } = System.Collections.ObjectModel.ReadOnlyDictionary<string, string>.Empty;
+
     /// <summary>The settings of the clip named <paramref name="name"/>, or null.</summary>
     public ModelClipSettings? FindClip(string name)
     {
@@ -128,7 +135,17 @@ public sealed record ModelImportSettings
         other is not null && Scale.Equals(other.Scale) && GenerateNormals == other.GenerateNormals && ImportMaterials == other.ImportMaterials &&
         OptimizeMeshes == other.OptimizeMeshes && ImportAnimations == other.ImportAnimations && OptimizeAnimations == other.OptimizeAnimations &&
         Clips.SequenceEqual(other.Clips) && LodErrors.SequenceEqual(other.LodErrors) && GenerateLods == other.GenerateLods &&
-        Shading == other.Shading;
+        Shading == other.Shading && SameHumanoid(Humanoid, other.Humanoid);
+
+    private static bool SameHumanoid(IReadOnlyDictionary<string, string> a, IReadOnlyDictionary<string, string> b)
+    {
+        if (a.Count != b.Count)
+            return false;
+        foreach (var (key, value) in a)
+            if (!b.TryGetValue(key, out var other) || !string.Equals(value, other, StringComparison.Ordinal))
+                return false;
+        return true;
+    }
 
     public override int GetHashCode() => HashCode.Combine(Scale, GenerateNormals, ImportMaterials, OptimizeMeshes, ImportAnimations, OptimizeAnimations, Clips.Count);
 
@@ -155,6 +172,7 @@ public sealed record ModelImportSettings
                     "lodErrors" => settings with { LodErrors = [.. value.EnumerateArray().Select(static e => e.GetSingle())] },
                     "generateLods" => settings with { GenerateLods = value.GetBoolean() },
                     "shading" => settings with { Shading = ParseShading(value.GetString()) },
+                    "humanoid" => settings with { Humanoid = ReadHumanoid(value, where) },
                     _ => Unknown(settings, key, where),
                 };
             }
@@ -173,7 +191,39 @@ public sealed record ModelImportSettings
         return settings;
     }
 
-    public Dictionary<string, JsonElement> ToMetaSettings() => new(StringComparer.Ordinal)
+    public Dictionary<string, JsonElement> ToMetaSettings()
+    {
+        var settings = BaseMetaSettings();
+        if (Humanoid.Count > 0)
+        {
+            var map = new Dictionary<string, string>(Humanoid, StringComparer.Ordinal);
+            settings["humanoid"] = JsonSerializer.SerializeToElement(map, AssetJsonContext.Default.DictionaryStringString);
+        }
+
+        return settings;
+    }
+
+    // { "LeftUpperLeg": "Thigh.L", … }: string values only; the bone names are checked when the map is built.
+    private static Dictionary<string, string> ReadHumanoid(JsonElement value, string? where)
+    {
+        if (value.ValueKind != JsonValueKind.Object)
+            throw new FormatException("expected an object of canonical bone names to rig bone names");
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var entry in value.EnumerateObject())
+        {
+            if (entry.Value.ValueKind != JsonValueKind.String)
+            {
+                Log.Warning($"[Import] {where ?? "model"}: humanoid '{entry.Name}' is not a bone name string; ignored.");
+                continue;
+            }
+
+            map[entry.Name] = entry.Value.GetString() ?? "";
+        }
+
+        return map;
+    }
+
+    private Dictionary<string, JsonElement> BaseMetaSettings() => new(StringComparer.Ordinal)
     {
         ["scale"] = JsonSerializer.SerializeToElement(Scale, AssetJsonContext.Default.Single),
         ["generateNormals"] = JsonSerializer.SerializeToElement(GenerateNormals, AssetJsonContext.Default.Boolean),
