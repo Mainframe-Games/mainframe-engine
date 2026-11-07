@@ -472,6 +472,7 @@ public abstract class Engine : IDisposable
         Servers.Register(new PhysicsServer2D(EngineOptions.Physics2D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
         // G3a: navigation syncs after the physics step (registered after it) and draws its debug lines per frame.
         Servers.Register(new NavigationServer2D { DebugDrawEnabled = EngineOptions.DebugNavigation });
+        Servers.Register(new NavigationServer3D { DebugDrawEnabled = EngineOptions.DebugNavigation }); // G3.11: after PhysicsServer3D
         // 2D canvas (ADR 0111): gamma-space canvas layer composited after the tonemap, below the game UI (registered first).
         Servers.Register(new CanvasServer(Tree, () => new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y), Renderer));
         if (EngineOptions.EnableUi)

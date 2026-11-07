@@ -31,6 +31,9 @@ public sealed class World3D
     /// <summary>The physics space simulating this world, created by the <see cref="PhysicsServer3D"/> for its first body.</summary>
     public PhysicsSpace3D? PhysicsSpace { get; internal set; }
 
+    /// <summary>The 3D navigation map of this world (G3.11), created by the <see cref="NavigationServer3D"/> for its first region or agent.</summary>
+    public NavigationMap3D? NavigationMap { get; internal set; }
+
     /// <summary>Water queries over this world's water bodies (<see cref="River3D"/>, …): depth, surface height, flow.</summary>
     public WaterQueries Water { get; } = new();
 
