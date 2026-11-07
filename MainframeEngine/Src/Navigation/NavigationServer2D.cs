@@ -25,7 +25,7 @@ public sealed class NavigationServer2D : IFixedStepServer, IFrameServer
     public IReadOnlyList<NavigationMap2D> Maps => _mapList;
 
     /// <summary>
-    /// G3.10: threads that run <see cref="NavigationMap2D.QueryPathAsync"/> requests (default a quarter of the processors,
+    /// G3.10: background threads (the server's own) that run <see cref="NavigationMap2D.QueryPathAsync"/> requests (default a quarter of the processors,
     /// 1–4; 0 runs them on the main thread at the next sync, with the same results). <c>project.mfproj</c>'s
     /// <c>navigation.workers</c> sets it in games.
     /// </summary>
@@ -126,7 +126,7 @@ public sealed class NavigationServer2D : IFixedStepServer, IFrameServer
         if (_disposed)
             return;
         _disposed = true;
-        _workers.Complete();
+        _workers.Dispose();
         foreach (var map in _mapList)
             if (ReferenceEquals(map.World.NavigationMap, map))
                 map.World.NavigationMap = null;

@@ -52,27 +52,29 @@ internal sealed class NavigationQueryScratch
 
 /// <summary>
 /// G3.10: the async path queries of a <see cref="NavigationServer2D"/>'s maps. <see cref="Submit"/> (main thread) puts a
-/// request in a reused slot and wakes up to <see cref="WorkerCount"/> workers on the .NET thread pool
-/// (<see cref="IThreadPoolWorkItem"/>s made once, each with its own <see cref="NavigationQueryScratch"/>); a worker runs the
-/// slot's query into the slot's own path. <see cref="Complete"/>, called by every map sync before the map changes, waits
-/// until every submitted request ran and copies each result into its caller's path in submission order. Nothing changes a
-/// map between its syncs, so the workers read the live grids and mesh without snapshots, and every result depends only on
-/// the map at submission and the query: delivery is always the next sync. With <see cref="WorkerCount"/> 0 the requests run
-/// on the main thread inside <see cref="Complete"/> (the same results; tests, platforms without threads). Allocation-free
-/// once the slots, paths and scratches have grown.
+/// request in a reused slot and wakes the workers: up to <see cref="WorkerCount"/> background threads of its own, started
+/// on first use, each with its own <see cref="NavigationQueryScratch"/>, sleeping on a monitor between batches (not the
+/// .NET thread pool, whose queue allocates segments as work items flow through it); a worker runs the slot's query into
+/// the slot's own path. <see cref="Complete"/>, called by every map sync before the map changes, runs what no worker has
+/// taken, waits until every submitted request ran and copies each result into its caller's path in submission order.
+/// Nothing changes a map between its syncs, so the workers read the live grids and mesh without snapshots, and every
+/// result depends only on the map at submission and the query: delivery is always the next sync. With
+/// <see cref="WorkerCount"/> 0 the requests run on the main thread inside <see cref="Complete"/> (the same results; tests,
+/// platforms without threads). Allocation-free once the slots, paths and scratches have grown and the threads started.
 /// </summary>
-internal sealed class NavigationQueryWorkers
+internal sealed class NavigationQueryWorkers : IDisposable
 {
     private readonly object _lock = new();
+    private readonly List<Worker> _workers = [];
+    private readonly NavigationQueryScratch _mainScratch = new();
     private Slot[] _slots = new Slot[16];
     private int _count;          // slots submitted since the last Complete
-    private int _next;           // the next slot a worker takes
-    private int _running;        // workers that took the batch and have not finished
-    private Worker[] _workers = [];
-    private readonly NavigationQueryScratch _mainScratch = new();
+    private int _next;           // the next slot to run
+    private int _active;         // slots running on a worker now
     private long _nextTicket = 1;
     private long _deliveredThrough; // every ticket ≤ this was delivered or cancelled
     private int _workerCount = DefaultWorkerCount;
+    private bool _disposed;
 
     /// <summary>The automatic worker count: a quarter of the processors, at least 1 and at most 4.</summary>
     public static int DefaultWorkerCount => Math.Clamp(Environment.ProcessorCount / 4, 1, 4);
@@ -85,7 +87,11 @@ internal sealed class NavigationQueryWorkers
         {
             ArgumentOutOfRangeException.ThrowIfNegative(value);
             Complete(); // never change the set while workers run
-            _workerCount = value;
+            lock (_lock)
+            {
+                _workerCount = value;
+                Monitor.PulseAll(_lock); // workers numbered at or past the count stop
+            }
         }
     }
 
@@ -94,8 +100,8 @@ internal sealed class NavigationQueryWorkers
 
     public NavigationPathRequest Submit(NavigationMap2D map, in NavigationPathQuery2D query, NavigationPath2D result)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         var ticket = _nextTicket++;
-        Worker? wake = null;
         lock (_lock)
         {
             if (_count == _slots.Length)
@@ -107,31 +113,14 @@ internal sealed class NavigationQueryWorkers
             slot.Ticket = ticket;
             slot.Cancelled = false;
             _count++;
-            if (_workerCount > 0 && _running < _workerCount && _next < _count)
+            if (_workerCount > 0)
             {
-                if (_workers.Length < _workerCount)
-                {
-                    var workers = new Worker[_workerCount];
-                    _workers.CopyTo(workers, 0);
-                    for (var i = _workers.Length; i < workers.Length; i++)
-                        workers[i] = new Worker(this);
-                    _workers = workers;
-                }
-
-                for (var i = 0; i < _workers.Length; i++)
-                {
-                    if (_workers[i].Busy)
-                        continue;
-                    wake = _workers[i];
-                    wake.Busy = true;
-                    _running++;
-                    break;
-                }
+                while (_workers.Count < _workerCount)
+                    _workers.Add(new Worker(this, _workers.Count)); // started once; they live until disposed
+                Monitor.PulseAll(_lock);
             }
         }
 
-        if (wake is not null)
-            ThreadPool.UnsafeQueueUserWorkItem(wake, preferLocal: false);
         return new NavigationPathRequest(this, ticket, result);
     }
 
@@ -159,7 +148,7 @@ internal sealed class NavigationQueryWorkers
                     }
                 }
 
-                while (_running > 0)
+                while (_active > 0)
                     Monitor.Wait(_lock);
             }
         }
@@ -192,7 +181,20 @@ internal sealed class NavigationQueryWorkers
     {
         for (var i = 0; i < _count; i++)
             if (_slots[i].Ticket == ticket)
-                _slots[i].Cancelled = true; // the worker may still run it; delivery skips it
+                _slots[i].Cancelled = true; // a worker may still run it; delivery skips it
+    }
+
+    /// <summary>Delivers what is pending and stops the worker threads.</summary>
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+        Complete();
+        lock (_lock)
+        {
+            _disposed = true;
+            Monitor.PulseAll(_lock);
+        }
     }
 
     private static void Run(Slot slot, NavigationQueryScratch scratch)
@@ -211,13 +213,24 @@ internal sealed class NavigationQueryWorkers
         }
     }
 
+    // A worker thread: sleeps until there is a slot to run, runs it outside the lock, and stops when disposed or when the
+    // worker count drops to its number or below.
     private void WorkLoop(Worker worker)
     {
         lock (_lock)
         {
-            while (_next < _count)
+            while (true)
             {
+                while (!_disposed && worker.Index < _workerCount && _next >= _count)
+                    Monitor.Wait(_lock);
+                if (_disposed || worker.Index >= _workerCount)
+                {
+                    _workers.Remove(worker);
+                    return;
+                }
+
                 var slot = _slots[_next++];
+                _active++;
                 Monitor.Exit(_lock);
                 try
                 {
@@ -226,12 +239,10 @@ internal sealed class NavigationQueryWorkers
                 finally
                 {
                     Monitor.Enter(_lock);
+                    _active--;
+                    Monitor.PulseAll(_lock);
                 }
             }
-
-            worker.Busy = false;
-            _running--;
-            Monitor.PulseAll(_lock);
         }
     }
 
@@ -245,11 +256,27 @@ internal sealed class NavigationQueryWorkers
         public volatile bool Cancelled;
     }
 
-    private sealed class Worker(NavigationQueryWorkers owner) : IThreadPoolWorkItem
+    private sealed class Worker
     {
         public readonly NavigationQueryScratch Scratch = new();
-        public bool Busy;
+        public readonly int Index;
 
-        public void Execute() => owner.WorkLoop(this);
+        public Worker(NavigationQueryWorkers owner, int index)
+        {
+            Index = index;
+            var thread = new Thread(static state =>
+            {
+                var w = (Worker)state!;
+                w._owner.WorkLoop(w);
+            })
+            {
+                IsBackground = true,
+                Name = $"Navigation worker {index}",
+            };
+            _owner = owner;
+            thread.Start(this);
+        }
+
+        private readonly NavigationQueryWorkers _owner;
     }
 }

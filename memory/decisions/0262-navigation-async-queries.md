@@ -1,4 +1,4 @@
-# ADR 0262 — Async navigation queries: thread-pool workers on the live map, delivered when the next sync has waited for them
+# ADR 0262 — Async navigation queries: worker threads on the live map, delivered when the next sync has waited for them
 
 - **Date:** 2026-11-07
 - **Status:** accepted
@@ -21,10 +21,12 @@ meshes, which a grid snapshot does not cover.
   its syncs, so between two syncs workers can read the live grids and mesh while the main thread queries them too (each
   with its own `GridSearch`/`NavMeshSearch`; the grid's per-query state moved into `GridSearch`). A result depends only on
   the map at submission and the query, and delivery is always the next sync whatever the threads did.
-- **Workers on the .NET thread pool**, as proposed: up to `QueryWorkerCount` `IThreadPoolWorkItem`s made once per
-  server (default a quarter of the processors, 1–4), woken by submissions, each looping over a lock-guarded list of
-  reused request slots that own their result paths. 0 workers runs every request at the sync on the main thread, with
-  the same results. Handles are structs carrying a ticket.
+- **Dedicated worker threads, not the .NET thread pool.** Up to `QueryWorkerCount` background threads per server
+  (default a quarter of the processors, 1–4), started on first use, each with its own scratch, sleeping on a monitor
+  between batches and looping over a lock-guarded list of reused request slots that own their result paths. 0 workers
+  runs every request at the sync on the main thread, with the same results. Handles are structs carrying a ticket. The
+  proposal's cached `IThreadPoolWorkItem`s allocate nothing per request, but on Windows the pool's global queue
+  allocates a new segment (4 KiB) as work items flow through it: CI's allocation gate caught 4192 bytes per window.
 - **Agents: `PathMode`** (`ProjectDefault`, `Immediate`, `Async`) instead of a bool, so `navigation.asyncAgents` can be
   the project default. For a map change or a push off the path an async agent keeps its old path until delivery; for a
   new target it stands still for that tick, because the old path leads to the old target and its end would count as
@@ -38,8 +40,8 @@ meshes, which a grid snapshot does not cover.
   snapshot design for navmeshes too; waiting at the sync gives the same isolation for free.
 - **Delivering whenever a worker finishes:** results would depend on thread timing (an agent could get its path in this
   tick or the next), losing determinism.
-- **Dedicated threads** instead of the pool: no allocation from the pool's queue segments either, but threads to own and
-  stop; the pool was the proposal's choice and the allocation gate passes with it.
+- **The .NET thread pool** (the proposal's choice): its global queue allocates segments as items pass through it on
+  Windows, so a steady stream of requests is not 0 bytes there.
 
 ## Consequences
 

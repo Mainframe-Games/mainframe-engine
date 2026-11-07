@@ -360,8 +360,9 @@ if (request.IsCompleted && request.Status == GridPathStatus.Found)
 
 - **`NavigationMap2D.QueryPathAsync(in query, NavigationPath2D result)`** queues the query and returns a
   `NavigationPathRequest` (a struct: `IsCompleted`, `Status`, `Result`, `Cancel`, `WasCancelled` until the delivery).
-  Workers run it on the .NET thread pool (one `IThreadPoolWorkItem` per worker, made once, each with its own grid and
-  navmesh search scratch) into a reused slot; **every map sync first waits for the requests submitted before it, then
+  Worker threads of the server's own (background threads started on first use, each with its own grid and navmesh
+  search scratch, asleep between batches; not the .NET thread pool, whose queue allocates as items pass through it on
+  Windows) run it into a reused slot; **every map sync first waits for the requests submitted before it, then
   copies each result into its caller's path in submission order** — never earlier, whatever the threads did. Nothing
   changes a map between its syncs (cell edits, bakes, moves and region changes all apply at the sync, after the wait),
   so workers read the live grids and mesh: no snapshots, no copies. A result depends only on the map at submission and
@@ -583,7 +584,8 @@ and `Navigation debug draw`, plus the server's own
   waits for the requests before it changes the map, so workers read the live data (same guarantees, no copies, 0 B with
   edits) and navmeshes are covered too. The agent setting is `PathMode` (`ProjectDefault`/`Immediate`/`Async`), not a
   bool `AsyncPath`, so the project default can apply; a new target makes an async agent stand still for one tick (the old
-  path leads elsewhere). The main thread helps run requests at the sync; 0 workers runs them all there. Added:
+  path leads elsewhere). The main thread helps run requests at the sync; 0 workers runs them all there. Workers are dedicated threads, not
+  the thread pool (its queue allocated 4 KiB segments on Windows CI). Added:
   `NavigationPathRequest.Cancel`/`WasCancelled`/`IsValid`, `NavigationServer2D.PendingQueries`, the async wait scope.
   Fixed on the way: navmesh paths no longer keep stale `Cells` from an earlier grid query in a reused path.
 - **G3.11 3D grids:** the grid code is the 2D map's, shared (`NavigationMap2D.QueryGrid`, `ClosestOnGrid`), and the
