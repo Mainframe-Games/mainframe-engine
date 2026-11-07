@@ -374,7 +374,8 @@ public static class ProjectSettingsFormat
     {
         var d = new RenderingProjectSettings();
         if (s.Exposure == d.Exposure && s.Shadows == d.Shadows && s.CanvasClearColor is null && s.AntiAliasing == d.AntiAliasing
-            && s.TaaSharpness == d.TaaSharpness && s.WaterSsr == d.WaterSsr && s.Scaling3DMode == d.Scaling3DMode
+            && s.TaaSharpness == d.TaaSharpness && s.WaterSsr == d.WaterSsr && s.VolumetricFogQuality == d.VolumetricFogQuality
+            && s.Scaling3DMode == d.Scaling3DMode
             && s.Scaling3DScale == d.Scaling3DScale && s.FsrSharpness == d.FsrSharpness && s.MeshLodThreshold == d.MeshLodThreshold)
             return;
         w.WriteStartObject("rendering");
@@ -388,6 +389,8 @@ public static class ProjectSettingsFormat
             w.WriteNumber("taaSharpness", s.TaaSharpness);
         if (s.WaterSsr != d.WaterSsr)
             w.WriteString("waterSsr", s.WaterSsr.ToString());
+        if (s.VolumetricFogQuality != d.VolumetricFogQuality)
+            w.WriteString("volumetricFogQuality", s.VolumetricFogQuality.ToString());
         if (s.Scaling3DMode != d.Scaling3DMode)
             w.WriteString("scaling3DMode", s.Scaling3DMode.ToString());
         if (s.Scaling3DScale != d.Scaling3DScale)
@@ -809,10 +812,11 @@ public static class ProjectSettingsFormat
 
         private void ReadRendering(JsonObject o, RenderingProjectSettings s)
         {
-            Known(o, "rendering.", "exposure", "shadows", "canvasClearColor", "antiAliasing", "taaSharpness", "waterSsr",
+            Known(o, "rendering.", "exposure", "shadows", "canvasClearColor", "antiAliasing", "taaSharpness", "waterSsr", "volumetricFogQuality",
                 "scaling3DMode", "scaling3DScale", "fsrSharpness", "meshLodThreshold");
             s.AntiAliasing = EnumValue(o, "antiAliasing", "rendering.antiAliasing", s.AntiAliasing);
             s.WaterSsr = EnumValue(o, "waterSsr", "rendering.waterSsr", s.WaterSsr);
+            s.VolumetricFogQuality = EnumValue(o, "volumetricFogQuality", "rendering.volumetricFogQuality", s.VolumetricFogQuality);
             var taaSharpness = Float(o, "taaSharpness", "rendering.taaSharpness", s.TaaSharpness);
             Guard("rendering.taaSharpness", () => s.TaaSharpness = taaSharpness);
             s.Scaling3DMode = EnumValue(o, "scaling3DMode", "rendering.scaling3DMode", s.Scaling3DMode);

@@ -10,7 +10,7 @@
 struct Composite
 {
     float4 depth;  // M33, M43, M34, M44 of the projection the scene was drawn with
-    float4 params; // x = sky affect, yz = the fog image's size
+    float4 params; // x = sky affect, yz = the fog image's size, w = scene pixels per fog texel (2 or 4, ADR 0276)
 };
 
 [[vk::push_constant]] ConstantBuffer<Composite> pc;
@@ -31,7 +31,8 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
     bool sky = d >= 1.0;
 
     int2 fogSize = int2(pc.params.yz);
-    float2 h = fragCoord.xy * 0.5 - 0.5; // this pixel in half-resolution texel coordinates
+    float scale = pc.params.w;
+    float2 h = fragCoord.xy / scale - 0.5; // this pixel in the fog image's texel coordinates
     int2 base = int2(floor(h));
     float2 f = h - float2(base);
     float tolerance = 0.05 * z + 0.05;
@@ -43,7 +44,7 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
     {
         int2 o = int2(i & 1, i >> 1);
         int2 t = clamp(base + o, int2(0), fogSize - int2(1));
-        float td = sceneDepth.Load(int3(t * 2, 0));
+        float td = sceneDepth.Load(int3(t * int(scale), 0));
         float4 s = fog.Load(int3(t, 0));
         // Sky against sky matches; sky against a surface never does.
         float delta = (td >= 1.0) == sky ? (sky ? 0.0 : abs(viewDepth(td) - z)) : 1e20;

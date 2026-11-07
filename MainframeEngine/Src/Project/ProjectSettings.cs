@@ -483,6 +483,12 @@ public sealed class RenderingProjectSettings
     public WaterSsrQuality WaterSsr { get; set; } = WaterSsrQuality.Low;
 
     /// <summary>
+    /// How finely volumetric fog is marched (<see cref="RenderServer.VolumetricFogQuality"/>, G8e.3, ADR 0276): High
+    /// (default; half resolution, 24 steps) or Medium (quarter resolution, 12 steps).
+    /// </summary>
+    public VolumetricFogQuality VolumetricFogQuality { get; set; } = VolumetricFogQuality.High;
+
+    /// <summary>
     /// The largest projected error, in pixels, a mesh level of detail may have and still draw (G6.4, Godot's
     /// <c>mesh_lod_threshold</c>; <see cref="RenderServer.MeshLodThreshold"/>; default 1). Higher is faster and coarser;
     /// 0 always draws the full surfaces.

@@ -376,6 +376,7 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["rendering.antiAliasing"] = "Taa",
             ["rendering.taaSharpness"] = "0.5",
             ["rendering.waterSsr"] = "High",
+            ["rendering.volumetricFogQuality"] = "Medium",
             ["rendering.scaling3DMode"] = "Taau",
             ["rendering.scaling3DScale"] = "0.75",
             ["rendering.fsrSharpness"] = "0.5",

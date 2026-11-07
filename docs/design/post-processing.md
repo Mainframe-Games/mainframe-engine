@@ -445,6 +445,13 @@ packed into `PostEffectSettings.VolumetricFog` by the render server. A `BeforeTo
   `WorldEnvironment.GetFrameEnvironment`), so the air is counted once.
 - **Noise.** With temporal reprojection the step offset rotates every frame and the history averages it; without, it is
   fixed per pixel (a still image shows a fine dither instead of banding).
+- **Quality** (G8e.3, [ADR 0276](../../memory/decisions/0276-volumetric-fog-quality-tier.md);
+  `rendering.volumetricFogQuality`, `RenderServer.VolumetricFogQuality`, every view; the editor's view follows the
+  project): `High` (default) is the table above; `Medium` marches 12 steps (`MediumSteps`) into quarter-resolution
+  targets (`volumetric fog march medium`, `volumetric fog medium`) and composites from them: about a quarter of the
+  march's cost, softer shaft edges and more step banding. The passes take the scale (2 or 4 scene pixels per fog texel,
+  `ScaleFor`) as a push constant (`include/volumetric_fog.slang`'s `volumetricPixel`). Each tier has its own targets
+  and sets, made the first time it is used, so a switch starts a new history.
 - **Cost** and the Forest's values: [ADR 0171](../../memory/decisions/0171-volumetric-fog.md#consequences),
   [Forest](forest.md). `RenderServer.VolumetricFogGpuMilliseconds` times the three passes (the Forest benchmark reports it).
 
@@ -604,7 +611,9 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 - **ADR 0171** (`VolumetricFogTests`; golden `volumetric-fog_frame0030` on both drivers): a beam of sunlight through a hole
   in a roof stands > 3× above the shadowed fog beside it (which the sky ambient still lights; flat without volumetric
   fog), still frames are stable once converged (< 0.25 mean code change frame to frame), 0 B per frame with a swinging
-  camera. Unit tests: Godot's defaults, the packing and clamps, the analytic fog's start distance, the stage and enable
+  camera; at `Medium` (`AtMediumQualityTheBeamStillStandsOut`, golden `volumetric-fog-medium_frame0030` on both drivers,
+  ADR 0276) the beam passes the same checks. Unit tests: Godot's defaults, the packing and clamps, the tiers' steps,
+  scales and target sizes, the `volumetricFogQuality` setting's round trip, the analytic fog's start distance, the stage and enable
   rule, Henyey–Greenstein's normalisation, the step spacing, the noise volume (full range, tiling), the push blocks, the
   scene round trip.
 - **Unit tests** (`PostProcessingTests`): stage and order sorting, enable rules and needs, lazy creation and disposal,
