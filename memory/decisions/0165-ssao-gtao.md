@@ -3,7 +3,7 @@
 - **Date:** 2026-10-09
 - **Status:** accepted (implemented on `forest/s`, forest slice wave 5)
 - **Milestone:** Gameplay toolkit G6.6; forest visual quality G8e.1 (its GTAO half)
-- **Spec:** docs/design/future/rendering-features.md (G6.6 SSAO), docs/design/future/forest-visual-quality.md (G8e.1,
+- **Spec:** docs/design/future/rendering-features.md (G6.6 SSAO), docs/design/forest.md#visual-quality-g8e (the proposal, since removed) (G8e.1,
   G8e.2); current state in docs/design/post-processing.md#ssao and docs/design/lighting.md#screen-space-ambient-occlusion
 
 ## Context

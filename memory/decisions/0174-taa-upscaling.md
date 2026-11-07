@@ -3,7 +3,7 @@
 - **Date:** 2026-10-09
 - **Status:** accepted (implemented on `forest/taau`, forest slice wave 7)
 - **Milestone:** Gameplay toolkit G8e.8 (the forest's "Unreal look", ADR 0164)
-- **Spec:** docs/design/future/forest-visual-quality.md (G8e.8); current state in docs/design/post-processing.md (Render
+- **Spec:** docs/design/forest.md#visual-quality-g8e (the proposal, since removed) (G8e.8); current state in docs/design/post-processing.md (Render
   and output resolution, TAA), forest.md (Performance), project-and-gamehost.md (rendering settings)
 
 ## Context

@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** accepted (design only; no code yet)
 - **Milestone:** Gameplay toolkit G8e
-- **Spec:** docs/design/future/forest-visual-quality.md; frame diagram docs/images/forest-visual-quality-frame.svg
+- **Spec:** docs/design/forest.md#visual-quality-g8e (the proposal, since removed); frame diagram docs/images/forest-visual-quality-frame.svg
 
 ## Context
 
