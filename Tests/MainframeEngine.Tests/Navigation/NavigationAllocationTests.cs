@@ -142,15 +142,19 @@ public sealed class NavigationAllocationTests
         var grid = AStarGridOptimalityTests.Maze();
         Span<Vector2I> ids = stackalloc Vector2I[512];
         Span<Vector2> points = stackalloc Vector2[512];
-        grid.GetIdPath(new Vector2I(1, 1), new Vector2I(29, 19), ids, out _);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 20; i++)
+        void Queries(Span<Vector2I> ids, Span<Vector2> points)
         {
-            grid.JumpingEnabled = i % 2 == 0;
-            grid.GetIdPath(new Vector2I(1, 1), new Vector2I(29, 19), ids, out _);
-            grid.GetPointPath(new Vector2I(29, 1), new Vector2I(1, 19), points, out _, allowPartialPath: true);
+            for (var i = 0; i < 20; i++)
+            {
+                grid.JumpingEnabled = i % 2 == 0;
+                grid.GetIdPath(new Vector2I(1, 1), new Vector2I(29, 19), ids, out _);
+                grid.GetPointPath(new Vector2I(29, 1), new Vector2I(1, 19), points, out _, allowPartialPath: true);
+            }
         }
 
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Queries(ids, points); // warm-up: every path (A*, JPS, points) runs once before the gate
+        var idArray = new Vector2I[512];
+        var pointArray = new Vector2[512];
+        Assert.Equal(0, AllocationGate.SmallestWindow(() => Queries(idArray, pointArray)));
     }
 }

@@ -15,8 +15,7 @@ meshes, which a grid snapshot does not cover.
 
 ## Decision
 
-- **No snapshots: the sync waits first.** Every map sync starts with `NavigationQueryWorkers.Complete()`: it runs what no
-  worker has taken yet on the main thread, waits for the workers, and copies each finished result into its caller's path
+- **No snapshots: the sync waits first.** Every map sync starts with `NavigationQueryWorkers.Complete()`: it waits for the workers (with none, it runs the requests itself), and copies each finished result into its caller's path
   in submission order. Only then does the sync apply cell edits, bakes, moves and region changes. A map changes only at
   its syncs, so between two syncs workers can read the live grids and mesh while the main thread queries them too (each
   with its own `GridSearch`/`NavMeshSearch`; the grid's per-query state moved into `GridSearch`). A result depends only on
