@@ -1,0 +1,14 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Assets/UI/demo.rcss"/>
+</head>
+<body class="hud" data-model="navigation3d">
+    <div class="demo-panel">
+        <h1>Navigation 3D</h1>
+        <p class="hint">A grid on the floor baked from the walls, and capsules whose agents walk to the clicked point.</p>
+        <div class="demo-row"><span>Visible navigation</span><input type="checkbox" data-checked="debug"/></div>
+        <div class="demo-row"><span>Arrived</span><span>{{arrived}} / {{total}}</span></div>
+    </div>
+</body>
+</rml>

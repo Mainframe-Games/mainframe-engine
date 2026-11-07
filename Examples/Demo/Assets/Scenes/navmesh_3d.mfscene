@@ -1,0 +1,1188 @@
+{
+  "format": 2,
+  "uid": "scn_ed28141b6403",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "NavigationMesh_72k06": {
+      "type": "NavigationMesh",
+      "props": {
+        "Vertices": [
+          [-11.55, 0.100000024, 2.5],
+          [-9.45, 0.100000024, 2.5],
+          [-9.45, 0.100000024, 1.3000002],
+          [-9.15, 0.100000024, 1],
+          [-3.4499998, 0.100000024, 1],
+          [-3.2999992, 0.100000024, -1.8499999],
+          [-4.2, 0.100000024, -2.1499996],
+          [-4.2, 0.100000024, -3.9499998],
+          [-3.75, 0.100000024, -4.25],
+          [-3.75, 0.100000024, -7.55],
+          [-11.55, 0.100000024, -7.55],
+          [-2.0999994, 0.100000024, -4.25],
+          [-1.7999992, 0.100000024, -3.7999997],
+          [-0.75, 0.100000024, -3.9499998],
+          [-0.5999994, 0.39999998, -4.7],
+          [2.1000004, 1.4000001, -4.7],
+          [2.1000004, 1.4000001, -6.35],
+          [-0.5999994, 0.39999998, -6.35],
+          [-0.75, 0.100000024, -7.1],
+          [2.7000008, 0.100000024, -7.25],
+          [2.8500004, 0.100000024, -7.55],
+          [3.1500006, 1.7, -4.7],
+          [3.4500008, 1.6000001, -4.3999996],
+          [3.4500008, 1.6000001, 0.5500002],
+          [7.950001, 1.6000001, 0.5500002],
+          [7.950001, 1.6000001, 0.10000038],
+          [7.050001, 1.6000001, -0.19999981],
+          [7.050001, 1.6000001, -1.6999998],
+          [7.3500004, 1.6000001, -2],
+          [8.25, 1.6000001, -2],
+          [8.1, 1.6000001, -6.65],
+          [3.3000002, 1.6000001, -6.65],
+          [3.1500006, 1.7, -6.35],
+          [9, 1.6000001, -1.6999998],
+          [9, 1.6000001, -0.19999981],
+          [8.700001, 1.6000001, 0.10000038],
+          [10.650002, 1.6000001, 0.5500002],
+          [10.650002, 1.6000001, -6.65],
+          [-1.7999992, 0.100000024, -2.1499996],
+          [-2.0999994, 0.100000024, -1.8499999],
+          [-2.6999998, 0.100000024, 1],
+          [-2.3999996, 0.100000024, 1.3000002],
+          [-2.3999996, 0.100000024, 2.5],
+          [-1.5, 0.100000024, 2.5],
+          [-1.3499994, 0.20000005, 2.9500008],
+          [1.0500002, 0.100000024, 2.9500008],
+          [1.3500004, 0.100000024, 2.0500002],
+          [2.7000008, 0.100000024, 2.0500002],
+          [3.000001, 0.100000024, 1.6000004],
+          [2.5500002, 0.100000024, 1.3000002],
+          [2.5500002, 0.100000024, -3.7999997],
+          [-3.2999992, 1.3, -3.35],
+          [-3.2999992, 1.3, -2.75],
+          [-2.6999998, 1.3, -2.75],
+          [-2.6999998, 1.3, -3.35],
+          [3.000001, 0.100000024, 2.3500004],
+          [3.000001, 0.100000024, 3.7000008],
+          [2.1000004, 0.100000024, 4],
+          [2.1000004, 0.100000024, 7.6000004],
+          [11.550001, 0.100000024, 7.6000004],
+          [11.550001, 0.100000024, 1.3000002],
+          [11.25, 0.100000024, 1.6000004],
+          [-2.25, 0.9, 4.6000004],
+          [-2.25, 0.9, 3.4000006],
+          [-3.1499996, 1.3, 3.4000006],
+          [-3.4499998, 1.3, 3.1000004],
+          [-3.4499998, 1.3, 1.9000006],
+          [-8.55, 1.3, 1.9000006],
+          [-8.55, 1.3, 6.1000004],
+          [-3.4499998, 1.3, 6.1000004],
+          [-3.4499998, 1.3, 4.9000006],
+          [-3.1499996, 1.3, 4.6000004],
+          [-3.4499998, 0.100000024, 7.6000004],
+          [-3.5999994, 0.100000024, 7.000001],
+          [-9.15, 0.100000024, 7.000001],
+          [-9.45, 0.100000024, 6.700001],
+          [-11.55, 0.100000024, 7.6000004],
+          [-1.5, 0.30000007, 4.6000004],
+          [-1.3499994, 0.100000024, 5.3500004],
+          [-2.3999996, 0.100000024, 5.500001],
+          [-2.3999996, 0.100000024, 6.700001],
+          [-2.6999998, 0.100000024, 7.000001],
+          [1.3500004, 0.100000024, 4],
+          [1.0500002, 0.100000024, 3.7000008],
+          [-1.5, 0.30000007, 3.4000006]
+        ],
+        "Polygons": [
+          [0, 1, 2],
+          [0, 2, 3],
+          [4, 5, 6, 3],
+          [7, 8, 9],
+          [7, 9, 10, 0, 3],
+          [3, 6, 7],
+          [11, 12, 13, 14],
+          [18, 19, 20, 9],
+          [14, 15, 16, 17],
+          [18, 9, 8, 11, 14, 17],
+          [24, 25, 26, 23],
+          [16, 15, 21, 32],
+          [22, 23, 27, 28],
+          [31, 32, 21],
+          [31, 21, 22, 28, 29, 30],
+          [23, 26, 27],
+          [35, 25, 24, 36],
+          [33, 36, 37, 30],
+          [34, 35, 36],
+          [33, 34, 36],
+          [30, 29, 33],
+          [47, 48, 49, 46],
+          [39, 40, 41, 38],
+          [41, 42, 43],
+          [13, 12, 38],
+          [43, 44, 45],
+          [43, 45, 46, 41],
+          [5, 4, 40, 39],
+          [50, 13, 38, 41, 46, 49],
+          [51, 52, 53, 54],
+          [48, 47, 55, 61],
+          [56, 57, 58, 59, 61],
+          [59, 60, 61],
+          [61, 55, 56],
+          [62, 63, 64, 71],
+          [65, 66, 67],
+          [70, 71, 64, 65, 67, 68],
+          [68, 69, 70],
+          [75, 1, 0, 76],
+          [72, 73, 74, 76],
+          [74, 75, 76],
+          [81, 73, 72, 58],
+          [63, 62, 77, 84],
+          [80, 81, 58],
+          [44, 84, 77, 78, 82, 83],
+          [78, 79, 80],
+          [58, 57, 82, 78, 80],
+          [83, 45, 44]
+        ],
+        "DetourData": "dtmd1:VkFORAcAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAFUAAAC5AAAAMAAAAAIAAABbAAAAXwAAAAAAAAAwAAAAMzOzPzMzsz6amZk+AABAwQAAgL8AAADBAABAQc3MnEAAAABBVVXVQM3MOMHQzMw9AAAgQDMzF8HQzMw9AAAgQDMzF8HQzMw9aGamP2ZmEsHQzMw9AACAP8zMXMDQzMw9AACAPzAzU8DQzMw9zMzsv2ZmhsDQzMw9mJkJwGZmhsDQzMw9zMx8wAAAcMDQzMw9AACIwAAAcMDQzMw9mpnxwM3MOMHQzMw9mpnxwGRmBsDQzMw9AACIwGBm5r/QzMw9MjNzwAAAQL/QzMw9zMx8wJCZGb/MzMw+ZmaWwGhmBkA0M7M/ZmaWwGhmBkA0M7M/MzPLwJCZGb/MzMw+MzPLwAAAQL/QzMw9MzPjwNDMLEDQzMw9AADowGhmNkDQzMw9mpnxwJyZSUCamdk/ZmaWwNDMXEDOzMw/zMyMwNDMXEDOzMw/0MwMP2hm/kDOzMw/0MwMP2hm/kDOzMw/AM3MPZyZ4UDOzMw/wMxMvpyZ4UDOzMw/mJnZvzQz60DOzMw/AAAAwAAABEHOzMw/AAAAwJqZAUHOzMw/zczUwDQzU0DOzMw/zczUwJyZSUCamdk/MzPLwAAAEEHOzMw/mJnZvwAAEEHOzMw/wMxMvjQzC0HOzMw/AM3MPWhmKkHOzMw/0MwMP2hmKkHOzMw/zczUwGBm5r/QzMw9mJkJwGRmBsDQzMw9zMzsv8zMLMDQzMw9AACAP5iZGcDQzMw9aGamP5iZGcDQzMw9AAAgQAAAwL/QzMw9AAAgQMjMrL/QzEw+0Mw8QGhmhj/QzMw90Mw8QNDMrD/QzMw9NDMDQNDMLEDQzMw9NDMDQAQAQEDQzMw90MzMPzQzI0DQzMw9aGamPzQzI0DQzMw9MjNzwDAzU8BmZqY/ZmZWwDAzU8BmZqY/AAAwwMzMLMBmZqY/AAAwwMzMLMBmZqY/ZmZWwAQAQEDQzMw9aGYWQAQAQEDQzMw90MxsQGhmBkDQzMw9AACAQGhmBkDQzMw9NDPzQM7MOEHQzMw9NDPzQM7MOEHQzMw9aGamPwAANEHQzMw90MzMPwAAEMBmZmY/NDOTQAAAEMBmZmY/nJlZQJiZScBmZqY/nJlZQMzMXMBmZqY/aGZGQMzMXMBmZqY/ODPzP83MCMFmZqY/ODPzP83MCMFmZqY/NDPDQMzMXMBmZqY/NDPDQMzMXMBmZqY/zsycQJiZScBmZqY/NDOTQMzMXMDQzMw9NDPzQGRmZsDQzMw9AgDgQGZmEsHQzMw9AgDgQDMzF8HQzMw9aGbWQM3MOMHQzMw9NDPzQAAAwL+cmZk+NDOTQMjMrL/QzMw9NDOrQJiZGcDQzMw9AgCwQJiZGcDQzMw9aGbWQMzMLMDQzMw9AgDgQNDMrD/QzMw9AACAQGhmhj/QzMw90MxsQAAAwL+cmZk+nJlZQP//AAAAAAEAAgAAAAAAAAAnAAAAAgAAAAAAAAABAAM///8AAAAAAgADAAAAAAAAAAEAAAAFAAAAAAAAAAEAAz///wAABAAFAAYAAwAAAAAAHAAAAAYAAAAAAAAAAQAEP///AAAHAAgACQAAAAAAAAAAAAoABQAAAAAAAAABAAM///8AAAcACQAKAAAAAwAAAAQAAAAAAAIABgAAAAEABT///wAAAwAGAAcAAAAAAAAAAwAAAAUAAAAAAAAAAQADP///AAALAAwADQAOAAAAAAAAABkAAAAKAAAAAAABAAQ///8AABIAEwAUAAkAAAAAAAAAAAAAAAoAAAAAAAEABD///wAADgAPABAAEQAAAAAAAAAMAAAACgAAAAAAAQAEP///AAASAAkACAALAA4AEQAIAAQAAAAHAAkAAAABAAY///8AABgAGQAaABcAAAAAABEAAAAQAAAAAAAAAAEABD///wAAEAAPABUAIAAAAAAACQAAAA4AAAAAAAAAAQAEP///AAAWABcAGwAcAAAAAAAAABAAAAAPAAAAAAABAAQ///8AAB8AIAAVAAAAAAAAAAAADAAPAAAAAAAAAAEAAz///wAAHwAVABYAHAAdAB4ADgAAAA0AAAAVAAAAAQAGP///AAAXABoAGwAAAAAAAAALAAAADQAAAAAAAAABAAM///8AACMAGQAYACQAAAAAAAAACwAAABMAAAAAAAEABD///wAAIQAkACUAHgAAAAAAFAAAAAAAFQAAAAAAAQAEP///AAAiACMAJAAAAAAAAAAAABEAFAAAAAAAAAABAAM///8AACEAIgAkAAAAAAAAAAAAEwASAAAAAAAAAAEAAz///wAAHgAdACEAAAAAAAAADwAAABIAAAAAAAAAAQADP///AAAvADAAMQAuAAAAAAAfAAAAHQAAAAAAAAABAAQ///8AACcAKAApACYAAAAAABwAAAAdAAAAAAAAAAEABD///wAAKQAqACsAAAAAAAAAAAAAABsAAAAAAAAAAQADP///AAANAAwAJgAAAAAAAAAHAAAAHQAAAAAAAAABAAM///8AACsALAAtAAAAAAAAAAAAMAAbAAAAAAAAAAEAAz///wAAKwAtAC4AKQAAAAAAGgAAAB0AGAAAAAAAAQAEP///AAAFAAQAKAAnAAAAAAADAAAAFwAAAAAAAAABAAQ///8AADIADQAmACkALgAxAAAAGQAXABsAFgAAAAEABj///wAAMwA0ADUANgAAAAAAAAAAAAAAAAAAAAAAAQAEP///AAAwAC8ANwA9AAAAAAAWAAAAIgAAAAAAAAABAAQ///8AADgAOQA6ADsAPQAAAAAALwAAACEAIgAAAAEABT///wAAOwA8AD0AAAAAAAAAAAAAACAAAAAAAAAAAQADP///AAA9ADcAOAAAAAAAAAAfAAAAIAAAAAAAAAABAAM///8AAD4APwBAAEcAAAAAACsAAAAlAAAAAAAAAAEABD///wAAQQBCAEMAAAAAAAAAAAAAACUAAAAAAAAAAQADP///AABGAEcAQABBAEMARAAAACMAAAAkAAAAJgABAAY///8AAEQARQBGAAAAAAAAAAAAAAAlAAAAAAAAAAEAAz///wAASwABAAAATAAAAAAAAAABAAAAKQAAAAAAAQAEP///AABIAEkASgBMAAAAAAAqAAAAKQAAAAAAAAABAAQ///8AAEoASwBMAAAAAAAAAAAAJwAoAAAAAAAAAAEAAz///wAAUQBJAEgAOgAAAAAAAAAoAAAALAAAAAAAAQAEP///AAA/AD4ATQBUAAAAAAAjAAAALQAAAAAAAAABAAQ///8AAFAAUQA6AAAAAAAAAAAAKgAvAAAAAAAAAAEAAz///wAALABUAE0ATgBSAFMAAAArAAAALwAAADAAAQAGP///AABOAE8AUAAAAAAAAAAAAAAALwAAAAAAAAABAAM///8AADoAOQBSAE4AUAAAACAAAAAtAC4ALAAAAAEABT///wAAUwAtACwAAAAAAAAAAAAaAC0AAAAAAAAAAQADPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAEAAAAAAQAAAAAAAAIAAAAAAgAAAAAAAAQAAAAAAQAAAAAAAAUAAAAAAwAAAAAAAAgAAAAAAQAAAAAAAAkAAAABAwAAAQAAAAwAAAAAAgAAAQAAAA4AAAAAAgAAAQAAABAAAAABBQAAAgAAABUAAAAAAgAAAgAAABcAAAAAAgAAAgAAABkAAAAAAgAAAgAAABsAAAAAAQAAAgAAABwAAAAABAAAAgAAACAAAAAAAQAAAgAAACEAAAAAAgAAAgAAACMAAAAAAgAAAgAAACUAAAAAAQAAAgAAACYAAAAAAQAAAgAAACcAAAAAAQAAAgAAACgAAAAAAgAAAgAAACoAAAAAAgAAAgAAACwAAAAAAQAAAgAAAC0AAAAAAQAAAgAAAC4AAAAAAQAAAgAAAC8AAAAAAgAAAgAAADEAAAAAAgAAAgAAADMAAAAABAAAAgAAADcAAAAAAgAAAgAAADkAAAAAAgAAAgAAADsAAAAAAwAAAgAAAD4AAAAAAQAAAgAAAD8AAAAAAQAAAgAAAEAAAAAAAgAAAgAAAEIAAAAAAQAAAgAAAEMAAAAABAAAAgAAAEcAAAAAAQAAAgAAAEgAAAAAAgAAAgAAAEoAAAAAAgAAAgAAAEwAAAAAAQAAAgAAAE0AAAAAAgAAAgAAAE8AAAAAAgAAAgAAAFEAAAAAAQAAAgAAAFIAAAAABAAAAgAAAFYAAAAAAQAAAgAAAFcAAAAAAwAAAgAAAFoAAAAAAQAAyMysv9DMTD4zM4/AyMysv9DMTD4zM4/AAgABFQIAARUBAgARAgMABQIAARUEAAMRAAEDAQECAwUBAgAVAAEEEQECBAECAwQFAQIAEQIDAAUDAAIRAAECBQQFBhEFAwYEBQADAQACAwQAAQIFAQIAEQIDAAUDAAIRAAECBQIDAREDAAEFAAECFQECABECBQAEAgMFAQMEBQUCAAEVAQIAEQIDAAUDAAIRAAECBQIAARUCAAEVAgABFQECABECAwAFAQIAEQIDAAUCAAEVAgABFQIAARUBAgARAgMABQECABECAwAFAQIAEQIDAAEDBAABBAUABQMAAhEAAQIFAQIAEQIDAAUBAgARAgMAAQMEAAUCAAEVAAECFQMAAhEAAQIFAgABFQECABECAwABAwUABAMEBQUCAAEVAQIAEQIDAAUBAgARAgMABQIAARUBAgARAgMABQMAAhEAAQIFAgABFQECABECAwABAwUABAMEBQUCAAEVAgMBEQMEAQEEAAEFAgABFQIACAACAJ0AEgBoAKH///8CAAgAAgBjABAAaADR////AgAIAAIAYwAQAEkA6f///wIACAACAGMACABGAPX///8CAAgAAgA3AAgARgD7////AgAIAAIANwAIAEYABAAAAAIACAAbADQACABGAP3///8CAAgAPAATAAgARgABAAAAEwAIABsANAAIADwABQAAABMACAACAGMACAA8APv///8TAAgAJwA6AAgAPAACAAAANAAIAAIAYwAIABsA/f///zQACAACADcACAAbAAMAAAA3AAgAAgBjAAgABgAHAAAANwAIAAIAYQAQAEkA9f///zcACAACAGEAEABDAPv///83AAgAAgBMAAoAGQAJAAAAOgAIABsAYQAQAEMA/f///0AACAAbAGEACABDABwAAAA6ABAAHwA+ABAAIwAdAAAAOQAIACcAWQAIAEkA+////z4ACAAnAEQACAA+ABYAAAA5AAgAKQBZAAgASQD9////OQAIACkAQgAIADwAGwAAAEAACAA+AFkACABJABoAAAACAAgAPgBeABAAaADp////AgAIAD4AOwAQAGgA9f///wIACAA+ABMACABoAPv///8CAAgAPgARAAgARgAAAAAAAgAIAEYAEwAIAGgA/f///wIACABGABEACABoACYAAAACAAgAYgATAAgAaAAoAAAAAgAIAEIAOwAQAGgA+////wIACABkADkACABoACcAAAAWABAAQgA7ABAAXgD9////FgAQAEIAOwAQAF4AJAAAABYAEABCADkAEABKACMAAAAWAAgAPgBeABAAaAD1////FgAIAEwAXgAQAGgA+////xYAEABWADkAEABeACUAAAA4AAgATABeABAAaAD9////OAAIAGQAXgAIAGgAKQAAADsADQBMAEEAEABUACIAAAA+AAgAPgBeAAgAaAD7////QAAIAD4ARgAIAEYAFwAAAD4ACABZAF4ACABoAP3///8+AAgAYgBeAAgAaAArAAAAQAAIAFkARwAIAGIALQAAAEAACAAIAJ0AEgBoANH///9CAAgACACXABIAOQDp////QgAIAAgAhwASACgA9f///0IACAALAF4AEAAnAPv///9CAAgAFgBMAAoAHAAGAAAARAAIAAsAXgAQACcA/f///0wACgALAF4AEAAWAAgAAABEAAgAGwBLAAgAJwAYAAAAXgAQAAgAhwASACgA+////14AEAALAGUAEgAWAAsAAABlABIACACHABIAKAD9////ZQASAAgAhwASACgADgAAAGUAEgAIAGYAEgAWAA0AAABnABIACACXABIAOQD1////ZwASAAgAlwASADkA+////4YAEgAIAIwAEgAqABQAAABnABIACACXABIAOQD9////hgASAAgAlwASADkAEQAAAGcAEgAYAIEAEgA5AAwAAABnABIAKgCXABIAOQD7////ZwASACoAfwASADkADwAAAIoAEgAqAJcAEgA5AP3///+MABIAKgCXABIAOQATAAAAigASADQAlwASADkAEgAAAEAACAA0AJ0AEgBoAOn///9AAAgAPgBkAA0AaAD1////RgAIAD4AZAAJAFkA+////0YACABGAFcACABJABkAAABGAAgAPgBkAAkAWQD9////RgAIAEkAWQAJAFkALAAAAFkACAA+AGQACABDABUAAABAAAgASQBeAA0AaAD7////RwAIAEkAVwAIAE4ALwAAAEAACABMAF4ADQBoAP3///9AAAgAUABeAAgAaAAuAAAAQQAJAEwARgANAFQAKgAAAF4ACAA0AJ0AEgBoAPX///9eAAgAQACdAAgAaAD7////XgAIAEAAnQAIAGgAHwAAAGIACABAAJsACABOAP3///9iAAgAQACbAAgARQAeAAAAZAAIAEAAmwAIAE4AIQAAAGcACAA0AJ0AEgBoAPv///9nABIANACFABIAOQAKAAAAhQAIADYAnQASAGgA/f///4UAEgA2AJcAEgA5ABAAAACbAAgAPgCdAAgAaAAgAAAA",
+        "CellSize": 0.15,
+        "CellHeight": 0.1,
+        "AgentHeight": 1.4,
+        "AgentRadius": 0.35,
+        "AgentMaxClimb": 0.3
+      }
+    },
+    "BoxShape3D_coip4": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [24, 1, 16]
+      }
+    },
+    "StandardMaterial3D_6n0dp": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.30588236, 0.3529412, 0.4392157, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_td1pd": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [24, 1, 16]
+      }
+    },
+    "BoxShape3D_5l3nr": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [8, 1.5, 8]
+      }
+    },
+    "StandardMaterial3D_g8qou": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_bfx2y": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [8, 1.5, 8]
+      }
+    },
+    "BoxShape3D_2uyl6": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [4.6, 0.2, 2.4]
+      }
+    },
+    "StandardMaterial3D_g6oo3": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5803922, 0.6392157, 0.72156864, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_5od4f": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [4.6, 0.2, 2.4]
+      }
+    },
+    "BoxShape3D_vfpk1": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [6, 1.2, 5]
+      }
+    },
+    "StandardMaterial3D_9h5qc": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_o26js": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [6, 1.2, 5]
+      }
+    },
+    "BoxShape3D_nhb98": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [1.4, 1.2, 1.4]
+      }
+    },
+    "StandardMaterial3D_7r99d": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5803922, 0.6392157, 0.72156864, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_at9h9": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1.4, 1.2, 1.4]
+      }
+    },
+    "BoxShape3D_b4umz": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [1, 2, 1]
+      }
+    },
+    "StandardMaterial3D_a9wmq": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5803922, 0.6392157, 0.72156864, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_as0ti": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1, 2, 1]
+      }
+    },
+    "BoxShape3D_xi9bi": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [1, 2, 1]
+      }
+    },
+    "StandardMaterial3D_epbvr": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5803922, 0.6392157, 0.72156864, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_0j4ej": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1, 2, 1]
+      }
+    },
+    "BoxShape3D_gf911": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.25, 0.2, 2]
+      }
+    },
+    "StandardMaterial3D_ijaa0": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.47058824, 0.5254902, 0.627451, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_x95ac": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.25, 0.2, 2]
+      }
+    },
+    "BoxShape3D_wzb32": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.25, 0.4, 2]
+      }
+    },
+    "StandardMaterial3D_zariv": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.47058824, 0.5254902, 0.627451, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_ku2kb": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.25, 0.4, 2]
+      }
+    },
+    "BoxShape3D_i34zv": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.25, 0.6, 2]
+      }
+    },
+    "StandardMaterial3D_nlq3m": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.47058824, 0.5254902, 0.627451, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_7e4ra": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.25, 0.6, 2]
+      }
+    },
+    "BoxShape3D_ec0rw": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.25, 0.8, 2]
+      }
+    },
+    "StandardMaterial3D_jo07l": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.47058824, 0.5254902, 0.627451, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_96bhp": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.25, 0.8, 2]
+      }
+    },
+    "BoxShape3D_5ekup": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.25, 1, 2]
+      }
+    },
+    "StandardMaterial3D_a6b78": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.47058824, 0.5254902, 0.627451, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_zmwt4": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.25, 1, 2]
+      }
+    },
+    "BoxShape3D_h05sa": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.25, 1.2, 2]
+      }
+    },
+    "StandardMaterial3D_9ul3n": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.47058824, 0.5254902, 0.627451, 1],
+        "Roughness": 0.85
+      }
+    },
+    "BoxMesh_wu93z": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.25, 1.2, 2]
+      }
+    },
+    "StandardMaterial3D_mkfxv": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [1, 0.4509804, 0.8509804, 1]
+      }
+    },
+    "CylinderMesh_pj5mn": {
+      "type": "CylinderMesh",
+      "props": {
+        "TopRadius": 0.3,
+        "BottomRadius": 0.3,
+        "Height": 0.1
+      }
+    },
+    "CapsuleShape3D_i52t4": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_ffb5p": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.9764706, 0.8, 0.078431375, 1]
+      }
+    },
+    "CapsuleMesh_cm701": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_53rh3": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_5x8xa": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5882353, 0.8117647, 0.3372549, 1]
+      }
+    },
+    "CapsuleMesh_eigne": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_xzsve": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_ki8c3": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.2, 0.827451, 0.6, 1]
+      }
+    },
+    "CapsuleMesh_2pb9b": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_3hvld": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_pq9lg": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.23137255, 0.6862745, 0.76862746, 1]
+      }
+    },
+    "CapsuleMesh_d0kag": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_292x8": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_xd71t": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.26666668, 0.54901963, 0.9372549, 1]
+      }
+    },
+    "CapsuleMesh_ivsjx": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_mp8kr": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_c11z6": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5882353, 0.45490196, 0.5921569, 1]
+      }
+    },
+    "CapsuleMesh_4vgae": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "navmesh_3d",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [-3, 15, 15],
+        "RotationDegrees": [-46.974934, 0, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "v": 2,
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-60, -35, 0],
+        "Energy": 1.2
+      }
+    },
+    {
+      "name": "Level",
+      "parent": ".",
+      "type": "NavigationRegion3D",
+      "props": {
+        "NavigationMesh": { "res": "NavigationMesh_72k06" }
+      }
+    },
+    {
+      "name": "Block0",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [0, -0.5, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Block0",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_coip4" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Block0",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_6n0dp" },
+        "Mesh": { "res": "BoxMesh_td1pd" }
+      }
+    },
+    {
+      "name": "Block1",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [7, 0.75, -3]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Block1",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_5l3nr" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Block1",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_g8qou" },
+        "Mesh": { "res": "BoxMesh_bfx2y" }
+      }
+    },
+    {
+      "name": "Block2",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [0.9, 0.75, -5.5],
+        "RotationDegrees": [0, 0, 20]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Block2",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_2uyl6" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Block2",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_g6oo3" },
+        "Mesh": { "res": "BoxMesh_5od4f" }
+      }
+    },
+    {
+      "name": "Block3",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-6, 0.6, 4]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Block3",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_vfpk1" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Block3",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_9h5qc" },
+        "Mesh": { "res": "BoxMesh_o26js" }
+      }
+    },
+    {
+      "name": "Block4",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-3, 0.6, -3]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Block4",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_nhb98" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Block4",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_7r99d" },
+        "Mesh": { "res": "BoxMesh_at9h9" }
+      }
+    },
+    {
+      "name": "Block5",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [2, 1, 3]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Block5",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_b4umz" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Block5",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_a9wmq" },
+        "Mesh": { "res": "BoxMesh_as0ti" }
+      }
+    },
+    {
+      "name": "Block6",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [8, 2.5, -1]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Block6",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_xi9bi" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Block6",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_epbvr" },
+        "Mesh": { "res": "BoxMesh_0j4ej" }
+      }
+    },
+    {
+      "name": "Step0",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-1.625, 0.1, 4]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Step0",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_gf911" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Step0",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_ijaa0" },
+        "Mesh": { "res": "BoxMesh_x95ac" }
+      }
+    },
+    {
+      "name": "Step1",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-1.875, 0.2, 4]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Step1",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_wzb32" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Step1",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_zariv" },
+        "Mesh": { "res": "BoxMesh_ku2kb" }
+      }
+    },
+    {
+      "name": "Step2",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-2.125, 0.3, 4]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Step2",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_i34zv" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Step2",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_nlq3m" },
+        "Mesh": { "res": "BoxMesh_7e4ra" }
+      }
+    },
+    {
+      "name": "Step3",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-2.375, 0.4, 4]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Step3",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_ec0rw" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Step3",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_jo07l" },
+        "Mesh": { "res": "BoxMesh_96bhp" }
+      }
+    },
+    {
+      "name": "Step4",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-2.625, 0.5, 4]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Step4",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_5ekup" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Step4",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_a6b78" },
+        "Mesh": { "res": "BoxMesh_zmwt4" }
+      }
+    },
+    {
+      "name": "Step5",
+      "parent": "Level",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-2.875, 0.6, 4]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Level/Step5",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_h05sa" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Level/Step5",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_9ul3n" },
+        "Mesh": { "res": "BoxMesh_wu93z" }
+      }
+    },
+    {
+      "name": "Target",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [8, 1.55, -5],
+        "MaterialOverride": { "res": "StandardMaterial3D_mkfxv" },
+        "Mesh": { "res": "CylinderMesh_pj5mn" }
+      }
+    },
+    {
+      "name": "Chasers",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "Chaser0",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-10, 0.7, -6],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser0",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_i52t4" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser0",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_ffb5p" },
+        "Mesh": { "res": "CapsuleMesh_cm701" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser0",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.35,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser1",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-8.9, 0.7, -6],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser1",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_53rh3" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser1",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_5x8xa" },
+        "Mesh": { "res": "CapsuleMesh_eigne" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser1",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.35,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser2",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-7.8, 0.7, -6],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser2",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_xzsve" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser2",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_ki8c3" },
+        "Mesh": { "res": "CapsuleMesh_2pb9b" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser2",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.35,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser3",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-10, 0.7, -4.9],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser3",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_3hvld" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser3",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_pq9lg" },
+        "Mesh": { "res": "CapsuleMesh_d0kag" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser3",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.35,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser4",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-8.9, 0.7, -4.9],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser4",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_292x8" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser4",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_xd71t" },
+        "Mesh": { "res": "CapsuleMesh_ivsjx" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser4",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.35,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser5",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-7.8, 0.7, -4.9],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser5",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_mp8kr" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser5",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_c11z6" },
+        "Mesh": { "res": "CapsuleMesh_4vgae" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser5",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.35,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Controller",
+      "parent": ".",
+      "type": "NavigationDemo3D",
+      "props": {
+        "KeepHitHeight": true,
+        "Ring": 0.8
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "Navigation3DPanel",
+      "props": {
+        "Source": "Assets/Navigation/navmesh_3d_panel.rml"
+      }
+    }
+  ]
+}

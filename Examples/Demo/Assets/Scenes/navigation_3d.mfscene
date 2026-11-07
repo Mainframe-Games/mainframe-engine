@@ -1,0 +1,904 @@
+{
+  "format": 2,
+  "uid": "scn_3d8a393b5c7c",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "BoxShape3D_4qo38": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [24, 1, 16]
+      }
+    },
+    "StandardMaterial3D_q0nl5": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.30588236, 0.3529412, 0.4392157, 1],
+        "Roughness": 0.9
+      }
+    },
+    "BoxMesh_r1v1x": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [24, 1, 16]
+      }
+    },
+    "BoxShape3D_s41nc": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.6, 1.5, 9]
+      }
+    },
+    "StandardMaterial3D_xp04d": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5803922, 0.6392157, 0.72156864, 1],
+        "Roughness": 0.8
+      }
+    },
+    "BoxMesh_3gocx": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.6, 1.5, 9]
+      }
+    },
+    "BoxShape3D_0c14n": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [9, 1.5, 0.6]
+      }
+    },
+    "StandardMaterial3D_auc5q": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5803922, 0.6392157, 0.72156864, 1],
+        "Roughness": 0.8
+      }
+    },
+    "BoxMesh_q8my2": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [9, 1.5, 0.6]
+      }
+    },
+    "BoxShape3D_qf22y": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.6, 1.5, 7]
+      }
+    },
+    "StandardMaterial3D_gjgpf": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5803922, 0.6392157, 0.72156864, 1],
+        "Roughness": 0.8
+      }
+    },
+    "BoxMesh_695en": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.6, 1.5, 7]
+      }
+    },
+    "BoxShape3D_eth5d": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [5, 1.5, 0.6]
+      }
+    },
+    "StandardMaterial3D_lnnlg": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5803922, 0.6392157, 0.72156864, 1],
+        "Roughness": 0.8
+      }
+    },
+    "BoxMesh_91t3s": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [5, 1.5, 0.6]
+      }
+    },
+    "BoxShape3D_nqx2k": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [3, 1.5, 0.6]
+      }
+    },
+    "StandardMaterial3D_qcvtd": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5803922, 0.6392157, 0.72156864, 1],
+        "Roughness": 0.8
+      }
+    },
+    "BoxMesh_il7sd": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [3, 1.5, 0.6]
+      }
+    },
+    "BoxShape3D_ri1aj": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [2, 1.5, 2]
+      }
+    },
+    "StandardMaterial3D_z32hu": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.5803922, 0.6392157, 0.72156864, 1],
+        "Roughness": 0.8
+      }
+    },
+    "BoxMesh_gt11y": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [2, 1.5, 2]
+      }
+    },
+    "NavigationGridData_oto75": {
+      "type": "NavigationGridData",
+      "props": {
+        "Region": [0, 0, 48, 32],
+        "Solid": "rle1:OgQHBgIEGQQHBgIEGQQHBgIEGQQHBgIEGQQHBgIEGQQHBgIEGQQPBBkEDwQZBA8EGQQPBBkEDwQZBA8EGQQPBBkEDwQZBA8EGQQPBBkEEwwNBBMMDQQTDA0EEwwPFBwUHBQRCAMUEQgoCCgI5wE=",
+        "BakedFrom": "Physics",
+        "SolidCount": 340
+      }
+    },
+    "StandardMaterial3D_mkfxv": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [1, 0.4509804, 0.8509804, 1]
+      }
+    },
+    "CylinderMesh_pj5mn": {
+      "type": "CylinderMesh",
+      "props": {
+        "TopRadius": 0.35,
+        "BottomRadius": 0.35,
+        "Height": 0.1
+      }
+    },
+    "CapsuleShape3D_i52t4": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_ffb5p": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.9764706, 0.8, 0.078431375, 1],
+        "Roughness": 0.5
+      }
+    },
+    "CapsuleMesh_cm701": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_53rh3": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_5x8xa": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.6862745, 0.80784315, 0.27450982, 1],
+        "Roughness": 0.5
+      }
+    },
+    "CapsuleMesh_eigne": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_xzsve": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_ki8c3": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.39215687, 0.81960785, 0.46666667, 1],
+        "Roughness": 0.5
+      }
+    },
+    "CapsuleMesh_2pb9b": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_3hvld": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_pq9lg": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.20784314, 0.7921569, 0.6392157, 1],
+        "Roughness": 0.5
+      }
+    },
+    "CapsuleMesh_d0kag": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_292x8": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_xd71t": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.23137255, 0.6862745, 0.76862746, 1],
+        "Roughness": 0.5
+      }
+    },
+    "CapsuleMesh_ivsjx": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_mp8kr": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_c11z6": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.25882354, 0.58431375, 0.89411765, 1],
+        "Roughness": 0.5
+      }
+    },
+    "CapsuleMesh_4vgae": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_9qq2m": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_kso1j": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.42745098, 0.5019608, 0.7647059, 1],
+        "Roughness": 0.5
+      }
+    },
+    "CapsuleMesh_q2pln": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "CapsuleShape3D_bijdh": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    },
+    "StandardMaterial3D_wyx7s": {
+      "type": "StandardMaterial3D",
+      "v": 2,
+      "props": {
+        "AlbedoColor": [0.6666667, 0.42745098, 0.5058824, 1],
+        "Roughness": 0.5
+      }
+    },
+    "CapsuleMesh_3il5w": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.4
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "navigation_3d",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [-4.5, 16, 15],
+        "RotationDegrees": [-49.843998, 0, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "v": 2,
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-60, -35, 0],
+        "Energy": 1.2
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [0, -0.5, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Floor",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_4qo38" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Floor",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_q0nl5" },
+        "Mesh": { "res": "BoxMesh_r1v1x" }
+      }
+    },
+    {
+      "name": "Walls",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "Wall0",
+      "parent": "Walls",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-6, 0.75, -2.5]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall0",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_s41nc" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall0",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_xp04d" },
+        "Mesh": { "res": "BoxMesh_3gocx" }
+      }
+    },
+    {
+      "name": "Wall1",
+      "parent": "Walls",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-1, 0.75, 3.5]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall1",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_0c14n" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall1",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_auc5q" },
+        "Mesh": { "res": "BoxMesh_q8my2" }
+      }
+    },
+    {
+      "name": "Wall2",
+      "parent": "Walls",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [3.5, 0.75, -3.5]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall2",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_qf22y" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall2",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_gjgpf" },
+        "Mesh": { "res": "BoxMesh_695en" }
+      }
+    },
+    {
+      "name": "Wall3",
+      "parent": "Walls",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [7.5, 0.75, 1.5]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall3",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_eth5d" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall3",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_lnnlg" },
+        "Mesh": { "res": "BoxMesh_91t3s" }
+      }
+    },
+    {
+      "name": "Wall4",
+      "parent": "Walls",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-9.5, 0.75, 5]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall4",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_nqx2k" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall4",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_qcvtd" },
+        "Mesh": { "res": "BoxMesh_il7sd" }
+      }
+    },
+    {
+      "name": "Wall5",
+      "parent": "Walls",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [0, 0.75, -6]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall5",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_ri1aj" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall5",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_z32hu" },
+        "Mesh": { "res": "BoxMesh_gt11y" }
+      }
+    },
+    {
+      "name": "Grid",
+      "parent": ".",
+      "type": "NavigationGrid3D",
+      "props": {
+        "Position": [-12, 0, -8],
+        "Region": [0, 0, 48, 32],
+        "CellSize": [0.5, 0.5],
+        "AgentRadius": 0.35,
+        "Data": { "res": "NavigationGridData_oto75" }
+      }
+    },
+    {
+      "name": "Target",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [8, 0.05, -5],
+        "MaterialOverride": { "res": "StandardMaterial3D_mkfxv" },
+        "Mesh": { "res": "CylinderMesh_pj5mn" }
+      }
+    },
+    {
+      "name": "Chasers",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "Chaser0",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-11, 0.7, 6.2],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser0",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_i52t4" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser0",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_ffb5p" },
+        "Mesh": { "res": "CapsuleMesh_cm701" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser0",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.3,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser1",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-9.8, 0.7, 6.2],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser1",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_53rh3" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser1",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_5x8xa" },
+        "Mesh": { "res": "CapsuleMesh_eigne" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser1",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.3,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser2",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-8.6, 0.7, 6.2],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser2",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_xzsve" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser2",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_ki8c3" },
+        "Mesh": { "res": "CapsuleMesh_2pb9b" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser2",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.3,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser3",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-7.3999996, 0.7, 6.2],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser3",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_3hvld" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser3",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_pq9lg" },
+        "Mesh": { "res": "CapsuleMesh_d0kag" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser3",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.3,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser4",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-11, 0.7, 7.3999996],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser4",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_292x8" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser4",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_xd71t" },
+        "Mesh": { "res": "CapsuleMesh_ivsjx" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser4",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.3,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser5",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-9.8, 0.7, 7.3999996],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser5",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_mp8kr" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser5",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_c11z6" },
+        "Mesh": { "res": "CapsuleMesh_4vgae" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser5",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.3,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser6",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-8.6, 0.7, 7.3999996],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser6",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_9qq2m" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser6",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_kso1j" },
+        "Mesh": { "res": "CapsuleMesh_q2pln" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser6",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.3,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Chaser7",
+      "parent": "Chasers",
+      "type": "NavChaser3D",
+      "props": {
+        "Position": [-7.3999996, 0.7, 7.3999996],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser7",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_bijdh" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser7",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_wyx7s" },
+        "Mesh": { "res": "CapsuleMesh_3il5w" }
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser7",
+      "type": "NavigationAgent3D",
+      "props": {
+        "PathDesiredDistance": 0.4,
+        "TargetDesiredDistance": 0.3,
+        "TargetRepathDistance": 0.1,
+        "PathHeightOffset": 0.7
+      }
+    },
+    {
+      "name": "Controller",
+      "parent": ".",
+      "type": "NavigationDemo3D"
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "Navigation3DPanel"
+    }
+  ]
+}

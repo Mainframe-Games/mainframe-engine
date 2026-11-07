@@ -339,13 +339,31 @@ public sealed class NavigationMap2D
             result.CellBuffer[..result.Count].Clear(); // no cells behind navmesh points
             return result.Status = meshStatus;
         }
-        var grid = region.LiveGrid;
+        var status = QueryGrid(region.LiveGrid, query, result, scratch?.GridFor(region.LiveGrid) ?? region.LiveGrid.Search);
+        if (status is GridPathStatus.NotFound or GridPathStatus.InvalidPoint)
+            return result.Status = status;
+        var kept = result.Count;
+        var owners = result.OwnerBuffer;
+        for (var i = 0; i < kept; i++)
+            owners[i] = region;
+        result.Region = region;
+        return result.Status = status;
+    }
+
+    /// <summary>
+    /// The grid part of a query, shared with <see cref="NavigationMap3D"/> (whose grids lie on the XZ plane): the search
+    /// from the start's cell (moved to the nearest walkable cell within two when solid) to the target's (clamped into the
+    /// region for a partial path), post-processing, and the points — the start, the kept cells' centres, the target —
+    /// with their cells, into <paramref name="result"/> (its count set; status, owners and region left to the caller).
+    /// </summary>
+    internal static GridPathStatus QueryGrid(AStarGrid2D grid, in NavigationPathQuery2D query, NavigationPath2D result, GridSearch search)
+    {
         var startCell = grid.GetPointAt(query.Start);
         var startMoved = false;
         if (grid.IsSolid(grid.Index(startCell.X, startCell.Y)))
         {
             if (!TryNearestWalkable(grid, startCell, 2, query.Start, out startCell))
-                return result.Status = GridPathStatus.InvalidPoint;
+                return GridPathStatus.InvalidPoint;
             startMoved = true;
         }
 
@@ -354,7 +372,7 @@ public sealed class NavigationMap2D
         if (!targetInside)
         {
             if (!query.AllowPartialPath)
-                return result.Status = GridPathStatus.NotFound;
+                return GridPathStatus.NotFound;
             var r = grid.Region;
             targetCell = new Vector2I(Math.Clamp(targetCell.X, r.Position.X, r.End.X - 1), Math.Clamp(targetCell.Y, r.Position.Y, r.End.Y - 1));
         }
@@ -363,15 +381,14 @@ public sealed class NavigationMap2D
         int count;
         while (true)
         {
-            status = grid.GetIdPath(startCell, targetCell, result.RawCells, out count, query.AllowPartialPath,
-                scratch?.GridFor(grid) ?? grid.Search);
+            status = grid.GetIdPath(startCell, targetCell, result.RawCells, out count, query.AllowPartialPath, search);
             if (status != GridPathStatus.BufferTooSmall)
                 break;
             result.EnsureCapacity(count);
         }
 
         if (status is GridPathStatus.NotFound or GridPathStatus.InvalidPoint)
-            return result.Status = status;
+            return status;
         if (!targetInside)
             status = GridPathStatus.Partial;
 
@@ -399,12 +416,8 @@ public sealed class NavigationMap2D
             kept = 2;
         }
 
-        var owners = result.OwnerBuffer;
-        for (var i = 0; i < kept; i++)
-            owners[i] = region;
         result.SetCount(kept);
-        result.Region = region;
-        return result.Status = status;
+        return status;
     }
 
     /// <summary>
@@ -428,19 +441,10 @@ public sealed class NavigationMap2D
             var region = _regions[r0];
             if ((region.NavigationLayers & navigationLayers) == 0)
                 continue;
-            var grid = region.LiveGrid;
-            var r = grid.Region;
-            if (r.Size.X <= 0 || r.Size.Y <= 0)
+            if (!ClosestOnGrid(region.LiveGrid, point, out var centre))
                 continue;
-            var cell = grid.GetPointAt(point);
-            var clamped = new Vector2I(Math.Clamp(cell.X, r.Position.X, r.End.X - 1), Math.Clamp(cell.Y, r.Position.Y, r.End.Y - 1));
-            var walkable = !grid.IsSolid(grid.Index(clamped.X, clamped.Y));
-            if (walkable && clamped == cell)
+            if (centre == point)
                 return point;
-            var found = clamped;
-            if (!walkable && !TryNearestWalkable(grid, clamped, 16, point, out found))
-                continue;
-            var centre = grid.GetPointPosition(found);
             var d = Vector2.DistanceSquared(centre, point);
             if (d < bestDistance)
             {
@@ -450,6 +454,28 @@ public sealed class NavigationMap2D
         }
 
         return best;
+    }
+
+    /// <summary>
+    /// The closest point of <paramref name="grid"/> to stand on: <paramref name="point"/> itself in a walkable cell, else the
+    /// centre of the nearest walkable cell within 16 cells of the point clamped into the region. False when there is none.
+    /// </summary>
+    internal static bool ClosestOnGrid(AStarGrid2D grid, Vector2 point, out Vector2 closest)
+    {
+        closest = point;
+        var r = grid.Region;
+        if (grid.IsDirty || r.Size.X <= 0 || r.Size.Y <= 0)
+            return false;
+        var cell = grid.GetPointAt(point);
+        var clamped = new Vector2I(Math.Clamp(cell.X, r.Position.X, r.End.X - 1), Math.Clamp(cell.Y, r.Position.Y, r.End.Y - 1));
+        var walkable = !grid.IsSolid(grid.Index(clamped.X, clamped.Y));
+        if (walkable && clamped == cell)
+            return true;
+        var found = clamped;
+        if (!walkable && !TryNearestWalkable(grid, clamped, 16, point, out found))
+            return false;
+        closest = grid.GetPointPosition(found);
+        return true;
     }
 
     internal NavigationGrid2D? FindRegion(Vector2 position, uint layers)

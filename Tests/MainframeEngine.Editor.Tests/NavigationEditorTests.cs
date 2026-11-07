@@ -255,4 +255,76 @@ public sealed class NavigationEditorTests : IDisposable
         link.Bidirectional = false;
         Assert.Equal(bidirectional - 2, Lines(link));
     }
+
+    [Fact]
+    public void Grid3DBakeAndClearAreUndoableAndVisibleNavigationReachesThe3DServer()
+    {
+        var floor = new StaticBody3D { Name = "Floor", Position = new Vector3(5, -0.5f, 5) };
+        _editor.Scene.AddNode(floor, _editor.Scene.Root);
+        _editor.Scene.AddNode(new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(12, 1, 12) } }, floor);
+        var wall = new StaticBody3D { Name = "Wall", Position = new Vector3(4.5f, 1, 4.5f) };
+        _editor.Scene.AddNode(wall, _editor.Scene.Root);
+        _editor.Scene.AddNode(new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(1, 2, 3) } }, wall);
+        var grid = new NavigationGrid3D { Name = "Nav3D", Region = new Rect2I(0, 0, 10, 10) };
+        _editor.Scene.AddNode(grid, _editor.Scene.Root);
+        _editor.Tick(2);
+        Assert.IsType<NavigationGrid3DInspector>(CustomInspectors.Find(typeof(NavigationGrid3D)));
+        Assert.Contains("not baked", NavigationGrid3DInspector.Status(grid), StringComparison.Ordinal);
+
+        _editor.Scene.Selection.Set(grid);
+        _editor.Tick();
+        W.Inspector.RunHeaderAction(NavigationGrid3DInspector.BakeAction);
+        _editor.Tick(2);
+        Assert.Equal(3, grid.Data!.SolidCount);
+        Assert.Contains("3 solid", NavigationGrid3DInspector.Status(grid), StringComparison.Ordinal);
+        W.Inspector.RunHeaderAction(NavigationGrid3DInspector.ClearAction);
+        _editor.Tick(2);
+        Assert.Null(grid.Data);
+        _editor.Scene.History.Undo();
+        _editor.Tick(2);
+        Assert.Equal(3, grid.Data!.SolidCount);
+
+        var server = W.Tree!.Servers.Get<NavigationServer3D>();
+        Assert.NotNull(server);
+        Assert.True(server.DebugDrawEnabled);
+        W.Commands.Execute("view.navigation");
+        _editor.Tick(2);
+        Assert.False(server.DebugDrawEnabled);
+        W.Commands.Execute("view.navigation");
+        _editor.Tick(2);
+        Assert.True(server.DebugDrawEnabled);
+    }
+
+    [Fact]
+    public void Region3DBakeAndClearAreUndoableEditsOfTheMesh()
+    {
+        var region = new NavigationRegion3D { Name = "Level", NavigationMesh = new NavigationMesh { CellSize = 0.2f, CellHeight = 0.1f } };
+        _editor.Scene.AddNode(region, _editor.Scene.Root);
+        var floor = new StaticBody3D { Name = "Floor", Position = new Vector3(0, -0.5f, 0) };
+        _editor.Scene.AddNode(floor, region);
+        _editor.Scene.AddNode(new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(10, 1, 10) } }, floor);
+        _editor.Tick(2);
+        Assert.IsType<NavigationRegion3DInspector>(CustomInspectors.Find(typeof(NavigationRegion3D)));
+        Assert.Contains("not baked", NavigationRegion3DInspector.Status(region), StringComparison.Ordinal);
+
+        _editor.Scene.Selection.Set(region);
+        _editor.Tick();
+        W.Inspector.RunHeaderAction(NavigationRegion3DInspector.BakeAction);
+        _editor.Tick(2);
+        var mesh = region.NavigationMesh!;
+        Assert.True(mesh.IsBaked);
+        var data = mesh.DetourData;
+        Assert.Contains("polygons", NavigationRegion3DInspector.Status(region), StringComparison.Ordinal);
+        Assert.Same(region, Assert.Single(region.Map!.MeshRegions));
+
+        W.Inspector.RunHeaderAction(NavigationRegion3DInspector.ClearAction);
+        _editor.Tick(2);
+        Assert.False(mesh.IsBaked);
+        _editor.Scene.History.Undo();
+        _editor.Tick(2);
+        Assert.Equal(data, mesh.DetourData);
+        _editor.Scene.History.Undo();
+        _editor.Tick(2);
+        Assert.False(mesh.IsBaked);
+    }
 }

@@ -179,7 +179,7 @@ ADR 0226. While a 2D tab's selection is a `TileMapLayer` with a `TileSet`:
 through public API: `GetUsedRect`, `GetUsedCells`, `GetCellTileData`, collision polygons on a chosen physics layer
 (`TileData.GetCollisionPolygonsCount`), a custom data bool and float (`TileSet.GetCustomDataLayerByName`,
 `TileData.GetCustomBool`, `GetCustomFloat`), and `Changed` to re-read. Godot's per-tile navigation polygons
-(`TileSetNavigationLayer`) are reserved for 2D navmeshes ([G3.9](future/navigation.md)).
+(`TileSetNavigationLayer`) are reserved for 2D navmeshes ([G3.9](navigation.md#navigation-meshes-g39)).
 
 ## Demo scene
 
@@ -239,5 +239,5 @@ collision, runtime tile data overrides, a Godot `.tres`/`.tscn` importer.
 ## Related
 
 [2D canvas](canvas.md) · [Animated sprites](animated-sprites.md) · [Physics](physics.md) · [Editor](editor.md) ·
-[Scene serialization](scene-serialization.md) · [Demo](demo.md) · [Navigation](future/navigation.md) (G3) ·
+[Scene serialization](scene-serialization.md) · [Demo](demo.md) · [Navigation](navigation.md) (G3) ·
 [Milestones](../milestones.md#gameplay-toolkit-)

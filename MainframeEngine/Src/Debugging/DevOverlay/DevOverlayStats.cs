@@ -339,14 +339,17 @@ internal sealed class PhysicsStats(DevOverlaySources sources)
         }
     }
 
-    /// <summary>G3a: the navigation debug draw (grids, agent paths and targets).</summary>
+    /// <summary>G3a: the navigation debug draw (grids, agent paths and targets; 2D and, G3.11, 3D).</summary>
     public bool Navigation
     {
-        get => sources.Servers.Get<NavigationServer2D>()?.DebugDrawEnabled == true;
+        get => sources.Servers.Get<NavigationServer2D>()?.DebugDrawEnabled == true
+               || sources.Servers.Get<NavigationServer3D>()?.DebugDrawEnabled == true;
         set
         {
             if (sources.Servers.Get<NavigationServer2D>() is { } navigation)
                 navigation.DebugDrawEnabled = value;
+            if (sources.Servers.Get<NavigationServer3D>() is { } navigation3D)
+                navigation3D.DebugDrawEnabled = value;
         }
     }
 

@@ -68,13 +68,13 @@ msgstr ""
 #. RML <span>
 #: Examples/Demo/Assets/AdaptiveMusic/panel.rml:26
 #: Examples/Demo/Assets/Audio/panel2d.rml:12
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:264
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:266
 msgid "Music"
 msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Animation3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
 msgid "Animation 3D"
 msgstr ""
 
@@ -182,7 +182,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:263
 msgid "Audio 2D"
 msgstr ""
 
@@ -213,7 +213,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:264
 msgid "Audio 3D"
 msgstr ""
 
@@ -345,6 +345,44 @@ msgid "F12"
 msgstr ""
 
 #. RML <h1>
+#: Examples/Demo/Assets/Navigation/navigation_3d_panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
+msgid "Navigation 3D"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/Navigation/navigation_3d_panel.rml:9
+msgid "A grid on the floor baked from the walls, and capsules whose agents walk to the clicked point."
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/navigation_3d_panel.rml:10
+#: Examples/Demo/Assets/Navigation/navmesh_3d_panel.rml:10
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:11
+#: Examples/Demo/Assets/Navigation/panel.rml:25
+msgid "Visible navigation"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/navigation_3d_panel.rml:11
+#: Examples/Demo/Assets/Navigation/navmesh_3d_panel.rml:11
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:16
+#: Examples/Demo/Assets/Navigation/panel.rml:29
+msgid "Arrived"
+msgstr ""
+
+#. RML <h1>
+#: Examples/Demo/Assets/Navigation/navmesh_3d_panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
+msgid "Navigation Mesh 3D"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/Navigation/navmesh_3d_panel.rml:9
+msgid "A navigation mesh baked with Recast over uneven ground: capsules walk to the clicked surface, up the ramp and the stairs."
+msgstr ""
+
+#. RML <h1>
 #: Examples/Demo/Assets/Navigation/navmesh_panel.rml:8
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:254
 msgid "Navigation Mesh 2D"
@@ -358,12 +396,6 @@ msgstr ""
 #. RML <span>
 #: Examples/Demo/Assets/Navigation/navmesh_panel.rml:10
 msgid "Carve the pond"
-msgstr ""
-
-#. RML <span>
-#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:11
-#: Examples/Demo/Assets/Navigation/panel.rml:25
-msgid "Visible navigation"
 msgstr ""
 
 #. RML <span>
@@ -385,12 +417,6 @@ msgstr ""
 #. RML <span>
 #: Examples/Demo/Assets/Navigation/navmesh_panel.rml:15
 msgid "Ferry crossings"
-msgstr ""
-
-#. RML <span>
-#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:16
-#: Examples/Demo/Assets/Navigation/panel.rml:29
-msgid "Arrived"
 msgstr ""
 
 #. RML <h1>
@@ -737,7 +763,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/SoundFx/panel.rml:17
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:263
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:265
 msgid "Sound FX"
 msgstr ""
 
@@ -803,7 +829,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
 msgid "Spine"
 msgstr ""
 
@@ -1067,7 +1093,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/WorldUi/panel.rml:12
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:266
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:268
 msgid "World UI"
 msgstr ""
 
@@ -1163,7 +1189,7 @@ msgid "Audio"
 msgstr ""
 
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:241
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:265
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:267
 msgid "UI"
 msgstr ""
 

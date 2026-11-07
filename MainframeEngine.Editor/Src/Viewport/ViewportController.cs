@@ -243,6 +243,8 @@ public sealed partial class ViewportController : Node
             viewport.DebugView = debugView;
         if (_workspace.Tree?.Servers.Get<NavigationServer2D>() is { } navigation)
             navigation.DebugDrawEnabled = NavigationVisible;
+        if (_workspace.Tree?.Servers.Get<NavigationServer3D>() is { } navigation3D)
+            navigation3D.DebugDrawEnabled = NavigationVisible; // G3.11
         PublishTarget(viewport);
 
         if (_drag == DragKind.Fly)

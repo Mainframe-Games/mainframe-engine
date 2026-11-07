@@ -198,6 +198,24 @@ msgstr "[Séttîñgs (F10 / Stårt) ~~~~]"
 msgid "F12"
 msgstr "[F12 ~]"
 
+msgid "Navigation 3D"
+msgstr "[Ñåvîgåtîöñ 3Ð ~~~]"
+
+msgid "A grid on the floor baked from the walls, and capsules whose agents walk to the clicked point."
+msgstr "[Å grîð öñ thé flöör båkéð fröm thé wålls, åñð çåpsûlés whösé ågéñts wålk tö thé çlîçkéð pöîñt. ~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Visible navigation"
+msgstr "[Vîsîblé ñåvîgåtîöñ ~~~~~]"
+
+msgid "Arrived"
+msgstr "[Årrîvéð ~~]"
+
+msgid "Navigation Mesh 3D"
+msgstr "[Ñåvîgåtîöñ Mésh 3Ð ~~~~]"
+
+msgid "A navigation mesh baked with Recast over uneven ground: capsules walk to the clicked surface, up the ramp and the stairs."
+msgstr "[Å ñåvîgåtîöñ mésh båkéð wîth Réçåst övér ûñévéñ gröûñð: çåpsûlés wålk tö thé çlîçkéð sûrfåçé, ûp thé råmp åñð thé ståîrs. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
 msgid "Navigation Mesh 2D"
 msgstr "[Ñåvîgåtîöñ Mésh 2Ð ~~~~]"
 
@@ -206,9 +224,6 @@ msgstr "[Pölýgöñs båkéð röûñð slåñtéð wålls, pîllårs åñð å
 
 msgid "Carve the pond"
 msgstr "[Çårvé thé pöñð ~~~]"
-
-msgid "Visible navigation"
-msgstr "[Vîsîblé ñåvîgåtîöñ ~~~~~]"
 
 msgid "Avoidance"
 msgstr "[Åvöîðåñçé ~~]"
@@ -221,9 +236,6 @@ msgstr "[Båké ågåîñ ~~]"
 
 msgid "Ferry crossings"
 msgstr "[Férrý çrössîñgs ~~~~]"
-
-msgid "Arrived"
-msgstr "[Årrîvéð ~~]"
 
 msgid "Navigation 2D"
 msgstr "[Ñåvîgåtîöñ 2Ð ~~~]"

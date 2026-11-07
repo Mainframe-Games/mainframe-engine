@@ -7,7 +7,7 @@ summary: >-
 # 2026-11-06: Navigation avoidance (G3.7)
 
 Branch `feature/navigation-avoidance`. Plan: [G3.7 local avoidance](../plans/2026-11-06-navigation-avoidance-g3-7.md).
-Proposal: [Navigation, later phases](../../docs/design/future/navigation.md); as built:
+Proposal: [Navigation, later phases](../../docs/design/navigation.md#changes-from-the-proposal); as built:
 [Navigation → Avoidance](../../docs/design/navigation.md#avoidance-g37).
 
 ## What changed

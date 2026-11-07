@@ -1,7 +1,7 @@
 # Plan: G3.10 async navigation queries
 
 **Status:** done, see [log](../logs/2026-11-07-navigation-async-queries.md)
-**Docs:** [Navigation proposal, later phases](../../docs/design/future/navigation.md) (§ Threading, Testing, task 5),
+**Docs:** [Navigation proposal, later phases](../../docs/design/navigation.md#changes-from-the-proposal) (§ Threading, Testing, task 5),
 [Navigation](../../docs/design/navigation.md) (maps and sync points, agents, navigation meshes),
 [ADR 0228](../decisions/0228-navigation-server-agents-and-sources.md), [ADR 0261](../decisions/0261-navigation-meshes-2d.md)
 **Started:** 2026-11-07

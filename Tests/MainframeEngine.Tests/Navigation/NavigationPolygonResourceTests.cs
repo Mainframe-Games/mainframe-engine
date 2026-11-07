@@ -79,4 +79,28 @@ public sealed class NavigationPolygonResourceTests : IDisposable
         root.Free();
         scene.Release();
     }
+
+    [Fact]
+    public void ABaked3DNavigationMeshLoadsBackAndQueries()
+    {
+        // G3.12: a NavigationMesh with its Detour tile as a .mfres; the loaded copy answers the same path.
+        var region = new NavigationRegion3D { Name = "Level", NavigationMesh = new NavigationMesh { CellSize = 0.2f, CellHeight = 0.1f, AgentRadius = 0.3f } };
+        var floor = new StaticBody3D { Position = new Vector3(0, -0.5f, 0) };
+        floor.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(8, 1, 8) } });
+        region.AddChild(floor);
+        Assert.True(region.Bake()); // the default source mode bakes outside the tree
+        ResourceSaver.Save(region.NavigationMesh!, "Assets/Levels/level.mfres");
+        ResourceLoader.ClearCache();
+        var loaded = ResourceLoader.Load<NavigationMesh>("Assets/Levels/level.mfres");
+        Assert.Equal(region.NavigationMesh!.DetourData, loaded.DetourData);
+        Assert.Equal(region.NavigationMesh.Vertices, loaded.Vertices);
+        Assert.Equal(0.3f, loaded.AgentRadius);
+        var runtime = new DetourMesh3D();
+        Assert.True(runtime.Load(loaded, Transform3D.Identity, out var error), error);
+        var path = new NavigationPath3D();
+        Assert.Equal(GridPathStatus.Found, runtime.FindPath(new Vector3(-3, 0, -3), new Vector3(3, 0, 3), true, NavigationPathPostprocessing.CorridorFunnel, path, region));
+        Assert.Equal(2, path.Count);
+        region.Free();
+        loaded.Release();
+    }
 }

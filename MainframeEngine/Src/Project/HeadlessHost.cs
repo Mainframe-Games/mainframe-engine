@@ -59,6 +59,7 @@ public sealed class HeadlessHost : IDisposable
         var navigation = new NavigationServer2D(); // G3a: dedicated servers are where agents run
         settings.Navigation.ApplyTo(navigation);
         Tree.Servers.Register(navigation);
+        Tree.Servers.Register(new NavigationServer3D()); // G3.11
         Tree.Servers.Register(GameHost.CreateSaveServer(settings, Tree)); // last: disposed (flushed) first
 
         Session = new GameSession(Tree, settings, options);

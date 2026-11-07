@@ -256,6 +256,8 @@ public sealed class DemoNav : UiDocument
                 "physics_2d" => Tr._("Physics 2D"),
                 "physics_3d" => Tr._("Physics 3D"),
                 "paths_3d" => Tr._("Paths 3D"),
+                "navigation_3d" => Tr._("Navigation 3D"),
+                "navmesh_3d" => Tr._("Navigation Mesh 3D"),
                 "spine" => Tr._("Spine"),
                 "animation_3d" => Tr._("Animation 3D"),
                 "audio_2d" => Tr._("Audio 2D"),

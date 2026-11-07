@@ -48,11 +48,12 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 | Forest art: [ambientCG](https://ambientcg.com) terrain sets (9) and scattered leaves (1), [Poly Haven](https://polyhaven.com) rock, cliff, log, stump, root, branch, moss, grass, nettle and fern models (23), the log cabin's furniture (9 models) and texture sets (9, ambientCG and Poly Haven) and a tonemapped HDRI (`lilienstein`); each listed in `Examples/Forest/NOTICE.md` | — | CC0 1.0 | `Examples/Forest/Assets/Art` (Git LFS; `Examples/Forest/Tools/fetch_assets.py`) | the Forest only |
 | Cutback (copied code) | 90cc508 | MIT | `MainframeEngine.Video` (`LICENSE-CUTBACK`) | editor only: `MainframeEngine.Video.dll` (video editing mode) |
 | [Clipper2](https://github.com/AngusJohnson/Clipper2) (Angus Johnson; polygon booleans and offsets for `Geometry2D`, ADR 0203) | 1.5.4 | Boost Software License 1.0 | NuGet package `Clipper2` | engine: `Clipper2Lib.dll` |
+| [DotRecast](https://github.com/ikpil/DotRecast) (ikpil; the C# port of Mikko Mononen's Recast & Detour: 3D navigation mesh baking and queries, ADR 0264) | 2026.3.1 | zlib | NuGet packages `DotRecast.Recast`, `DotRecast.Detour` (and their `DotRecast.Core`) | engine: `DotRecast.*.dll` |
 | [Whisper.net](https://github.com/sandrohanea/whisper.net) | 1.9.1 | MIT | NuGet packages `Whisper.net`, `Whisper.net.Runtime` | editor only: `Whisper.net.dll` + native runtimes (speech recognition) |
 | [Whisper.net.Runtime.Metal](https://github.com/sandrohanea/whisper.net) (Sandro Hanea; a dependency of `Whisper.net.Runtime`) | 1.9.1 | MIT | NuGet package `Whisper.net.Runtime.Metal` | editor only: `ggml-metal.metal` (ggml's Metal shader source, used on macOS) |
 | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | via Whisper.net.Runtime 1.9.1 | MIT | native libraries inside `Whisper.net.Runtime`; the Metal shader inside `Whisper.net.Runtime.Metal` | editor only: `whisper`/`ggml` native libraries, `ggml-metal.metal` |
 
-Managed NuGet dependencies (Silk.NET, StbImageSharp, Jitter2 and Box2D.NET — both MIT, Clipper2 — Boost, …) carry their own licence files in
+Managed NuGet dependencies (Silk.NET, StbImageSharp, Jitter2 and Box2D.NET — both MIT, Clipper2 — Boost, DotRecast — zlib, …) carry their own licence files in
 their packages and are not repeated here.
 
 ## FreeType
@@ -1003,4 +1004,30 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+## DotRecast
+
+DotRecast (https://github.com/ikpil/DotRecast) is a C# port of Recast & Detour, used for 3D navigation mesh baking and
+queries (G3.12). Its `LICENSE.txt` (zlib):
+
+```
+Copyright (c) 2015 Mikko Mononen memon@inside.org, Piotr Piastucki, choi ikpil ikpil@naver.com
+
+
+This software is provided 'as-is', without any express or implied
+warranty.  In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not
+claim that you wrote the original software. If you use this software
+in a product, an acknowledgment in the product documentation would be
+appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be
+misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 ```

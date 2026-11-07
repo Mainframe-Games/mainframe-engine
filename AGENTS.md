@@ -131,7 +131,11 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `LICENSE-RVO2.txt`, and the per-map `AvoidanceSimulation2D`) with `Nodes2D/NavigationObstacle2D`; `Polygons/` (G3.9, ADR 0261:
   `NavigationPolygon`, the Clipper2 bake and own convex `PolygonPartition`, the map's `NavMesh2D` + `NavMeshSearch`: polygon
   A* and the funnel) with `Nodes2D/NavigationRegion2D`, `NavigationLink2D` and `Baking/NavigationPolygonBaker2D`;
-  `NavigationQueryWorkers` (G3.10, ADR 0262: `QueryPathAsync` on worker threads, delivered at the next sync); see
+  `NavigationQueryWorkers` (G3.10, ADR 0262: `QueryPathAsync` on worker threads, delivered at the next sync);
+  `NavigationServer3D`/`NavigationMap3D` with `Nodes3D/` (`NavigationGrid3D`, `NavigationAgent3D`) and
+  `Baking/GridPhysicsBaker3D` (G3.11, ADR 0263: grids on the XZ plane, the 2D grid code shared); `Meshes3D/`
+  (G3.12, ADR 0264: `NavigationMesh`, `RecastBaker`, `DetourMesh3D` — the only DotRecast callers) with
+  `Nodes3D/NavigationRegion3D`; see
   `docs/design/navigation.md`
 - `MainframeEngine/Src/Animation/` — `Animation` (transform, value, bezier, method, audio and event tracks; cubic, transitions),
   `AnimationLibrary`, `AnimationPlayer` (ADRs 0207, 0244), `PropertyBinding`/`AnimationValueOps` (typed property writes),
@@ -426,6 +430,8 @@ The engine uses `unsafe` for Vulkan buffer/matrix operations. This is expected �
 - SoundFlow 1.4.1 (audio device/mixer, miniaudio natives in the package) and NVorbis 0.10.5 (OGG) — audio (M7)
 - Jitter2 (3D) and Box2D.NET (2D) — physics (pinned exactly)
 - Clipper2 1.5.4 (Boost licence) — `Geometry2D` polygon booleans and offsets, as Godot's (ADR 0203)
+- DotRecast 2026.3.1 (zlib; `DotRecast.Recast`, `DotRecast.Detour`) — 3D navigation mesh baking and queries, every call
+  inside `Src/Navigation/Meshes3D` (ADR 0264)
 - Whisper.net + Whisper.net.Runtime 1.9.1 — speech recognition for the editor's video mode only (`MainframeEngine.Video`)
 
 Do not add NuGet packages without discussing the dependency first. Versions are central in
