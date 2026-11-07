@@ -31,7 +31,8 @@ Proposal: [Navigation, later phases](../../docs/design/future/navigation.md); as
   two editor tests, `NavigationMesh2DSceneTests` (5); `NavmeshBenchmarks` (query ≈ 11 µs, rebuild ≈ 0.2 ms, both 0 B;
   machine busy, not in the baseline).
 - **Docs:** navigation (section, types, editor, tests, benchmarks, changes), proposal trimmed (G3.8 closed, G3.9 moved,
-  open question 2 answered), milestones G3b row, demo, AGENTS.md, README, landing page.
+  open questions 1 and 2 answered), demo, AGENTS.md, README, landing page. The status files wait for the state sync
+  (ADR 0280): see State changes.
 
 ## Decisions
 
@@ -49,6 +50,18 @@ Proposal: [Navigation, later phases](../../docs/design/future/navigation.md); as
   `FreeEdge : IComparable` and `Span.Sort()`.
 - In the Demo, avoidance pushed chasers into the river at the crowded ferry landings and out of the open floor: the river
   became a static body with an avoidance obstacle, and outer walls bound the level (neither is parsed by a region).
+
+## State changes
+
+For the state sync (ADR 0280); this PR leaves `docs/milestones.md` and `memory/context/current-state.md` as on `main`.
+
+- milestones G3b: the status becomes "🟡 G3.7 avoidance ✅ (ADR 0250); G3.8 grid polish closed as not needed (owner,
+  2026-11-07); G3.9 2D navigation meshes ✅ (ADR 0261: `NavigationPolygon`, `NavigationRegion2D`, `NavigationLink2D`,
+  funnel, bake, editor Bake/Clear, Demo); G3.10–G3.11 ⬜; G3.12 ⬜ (3D navmesh baking on DotRecast, the owner's choice)";
+  its first link becomes `design/navigation.md#navigation-meshes-g39`.
+- state: the 2D navigation entry in What exists gains "navigation meshes with `NavigationRegion2D`/`NavigationLink2D`
+  (G3.9, ADR 0261)"; in Next steps, "G3b's rest (G3.8–G3.12)" becomes "G3b's rest (G3.10–G3.12; G3.12 bakes on
+  DotRecast)".
 
 ## Verified
 
