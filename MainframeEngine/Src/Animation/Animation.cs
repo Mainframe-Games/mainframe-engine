@@ -83,6 +83,13 @@ public sealed class Animation : Resource
     [Export(Range = "0.001,1,0.001")]
     public float Step { get; set; } = 1f / 30;
 
+    /// <summary>
+    /// G1c: the <see cref="AnimationHash"/> of the keys <see cref="PoseBaker"/> wrote (empty for clips made by hand or
+    /// imported). When the clip's current hash differs, a person edited it, and a re-bake needs to be told to replace it.
+    /// </summary>
+    [Export]
+    public string BakedHash { get; set; } = "";
+
     [Export]
     public List<AnimationTrack> Tracks
     {

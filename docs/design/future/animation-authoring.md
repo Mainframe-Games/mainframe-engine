@@ -1,7 +1,7 @@
 # Proposal: Animation authoring (Claude-made clips, `mfe`, posing tools)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G1c authoring, G1d posing tools, G1e root
-motion, G1f auto-rigging and non-humanoid rigs) · **Status:** 🚧 accepted by the owner 2026-11-07 (ADR 0281); G1.12 built · **Depends on:**
+motion, G1f auto-rigging and non-humanoid rigs) · **Status:** 🚧 accepted by the owner 2026-11-07 (ADR 0281); G1.12 and G1.13 built · **Depends on:**
 [Keyframe animation](../animation.md) (G1a `Animation`/`AnimationPlayer`, G1b `Skeleton3D`/`Skin`/skinning/import),
 [Asset pipeline](../asset-pipeline.md) (`.mfmeta` settings), [Editor](../editor.md) · **Related:**
 [Editor viewport tools](../editor.md#viewport-tools) (G7: Save as `.mfres`), [Physics](../physics.md) (`CharacterBody3D`),
@@ -510,7 +510,13 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
     their rest relation to their parent; overrides are read as canonical name → rig name strings, so unknown names get
     a "did you mean"; the test character is the generated CC0 one.) `HumanoidBone`, `HumanoidMap.Detect` (name tables, structure), `HumanoidRig` (joint frames,
     rest correction, proportions, round trips), `HumanoidLimits`, named poses, `.mfmeta` `humanoid`; test asset; unit tests.
-13. **G1.13 Pose script and baker.** Script model and JSON context, `TwoBoneIk`, arcs, root modes, `PoseBaker` with
+13. ✅ **G1.13 Pose script and baker.** (Built, ADR 0282,
+    [Animation and skinning → Pose scripts and baking](../animation.md#pose-scripts-and-baking-g1c). Changes: a key's
+    `ease` shapes the segment after it (G1a's `Transitions`); `inPlace` ignores arcs instead of keeping them in place;
+    IK targets are character space only (`"space"` is rejected); parsing is by hand over `JsonDocument` for path-named
+    errors; the first key needs a named pose; every IK chain bone gets a track; linked libraries come before the imported
+    clips, so a baked clip wins over an imported one of the same name; the `BakedHash` guard ships here rather than in
+    G1.14.) Script model and JSON context, `TwoBoneIk`, arcs, root modes, `PoseBaker` with
     sparse and refinement keys, library writing and `.mfmeta` `libraries`; transform-track `Transitions` and
     `Animation.BakedHash` (G1a changes);
     importer appends linked libraries; unit tests.

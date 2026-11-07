@@ -122,6 +122,13 @@ public sealed record ModelImportSettings
     /// </summary>
     public IReadOnlyDictionary<string, string> Humanoid { get; init; } = System.Collections.ObjectModel.ReadOnlyDictionary<string, string>.Empty;
 
+    /// <summary>
+    /// G1c: <see cref="AnimationLibrary"/> <c>.mfres</c> files (project paths, <c>"libraries"</c>) put on the model's
+    /// <see cref="AnimationPlayer"/> before its imported clips, so every instance plays them and a library clip wins over an
+    /// imported clip of the same name. The pose baker adds the library it writes.
+    /// </summary>
+    public IReadOnlyList<string> Libraries { get; init; } = [];
+
     /// <summary>The settings of the clip named <paramref name="name"/>, or null.</summary>
     public ModelClipSettings? FindClip(string name)
     {
@@ -135,7 +142,7 @@ public sealed record ModelImportSettings
         other is not null && Scale.Equals(other.Scale) && GenerateNormals == other.GenerateNormals && ImportMaterials == other.ImportMaterials &&
         OptimizeMeshes == other.OptimizeMeshes && ImportAnimations == other.ImportAnimations && OptimizeAnimations == other.OptimizeAnimations &&
         Clips.SequenceEqual(other.Clips) && LodErrors.SequenceEqual(other.LodErrors) && GenerateLods == other.GenerateLods &&
-        Shading == other.Shading && SameHumanoid(Humanoid, other.Humanoid);
+        Shading == other.Shading && SameHumanoid(Humanoid, other.Humanoid) && Libraries.SequenceEqual(other.Libraries);
 
     private static bool SameHumanoid(IReadOnlyDictionary<string, string> a, IReadOnlyDictionary<string, string> b)
     {
@@ -173,6 +180,7 @@ public sealed record ModelImportSettings
                     "generateLods" => settings with { GenerateLods = value.GetBoolean() },
                     "shading" => settings with { Shading = ParseShading(value.GetString()) },
                     "humanoid" => settings with { Humanoid = ReadHumanoid(value, where) },
+                    "libraries" => settings with { Libraries = [.. value.EnumerateArray().Select(static e => e.GetString() ?? "").Where(static p => p.Length > 0)] },
                     _ => Unknown(settings, key, where),
                 };
             }
@@ -194,6 +202,8 @@ public sealed record ModelImportSettings
     public Dictionary<string, JsonElement> ToMetaSettings()
     {
         var settings = BaseMetaSettings();
+        if (Libraries.Count > 0)
+            settings["libraries"] = JsonSerializer.SerializeToElement(Libraries.ToArray(), AssetJsonContext.Default.StringArray);
         if (Humanoid.Count > 0)
         {
             var map = new Dictionary<string, string>(Humanoid, StringComparer.Ordinal);
@@ -606,7 +616,7 @@ public sealed unsafe class ModelImporter : IAssetImporter
             ModelLods.Merge(root, settings.LodErrors, $"'{projectPath}'");
             if (settings.GenerateLods)
                 ModelLods.Generate(root, $"'{projectPath}'"); // ADR 0256: index-only levels for surfaces without authored ones
-            if (settings.ImportAnimations && scene->MNumAnimations > 0)
+            if ((settings.ImportAnimations && scene->MNumAnimations > 0) || settings.Libraries.Count > 0)
                 BuildAnimations(root);
             return root;
         }
@@ -938,7 +948,7 @@ public sealed unsafe class ModelImporter : IAssetImporter
             var extras = GltfAnimationExtras.Read(fullPath, projectPath);
             var library = new AnimationLibrary();
             var skipped = 0;
-            for (var i = 0u; i < scene->MNumAnimations; i++)
+            for (var i = 0u; settings.ImportAnimations && i < scene->MNumAnimations; i++)
             {
                 var source = scene->MAnimations[i];
                 var raw = source->MName.AsString;
@@ -1009,10 +1019,27 @@ public sealed unsafe class ModelImporter : IAssetImporter
 
             if (skipped > 0)
                 Log.Warning($"[Import] '{projectPath}': {skipped} animation channel(s) target nodes that were not imported; skipped.");
-            if (library.Animations.Count == 0)
+
+            // G1c: linked libraries (baked clips) come first, so they win over imported clips of the same name.
+            var linked = new List<AnimationLibrary>();
+            foreach (var path in settings.Libraries)
+            {
+                try
+                {
+                    linked.Add(ResourceLoader.Load<AnimationLibrary>(path));
+                }
+                catch (Exception e) when (e is IOException or InvalidOperationException or InvalidCastException or FormatException or KeyNotFoundException or System.Text.Json.JsonException)
+                {
+                    Log.Warning($"[Import] '{projectPath}': linked animation library '{path}' could not be loaded ({e.Message}); skipped.");
+                }
+            }
+
+            if (library.Animations.Count == 0 && linked.Count == 0)
                 return;
             var player = new AnimationPlayer { Name = "AnimationPlayer" };
-            player.Libraries.Add(library);
+            player.Libraries.AddRange(linked);
+            if (library.Animations.Count > 0)
+                player.Libraries.Add(library);
             root.AddChild(player);
         }
 

@@ -165,6 +165,21 @@ public sealed class HumanoidRig
         return JointAnglesOf(bone, canonical);
     }
 
+    /// <summary>
+    /// <paramref name="canonicalDirection"/> (a direction in the canonical T-pose frame of <paramref name="bone"/>, e.g. +Z,
+    /// the knee's forward) turned by the bone's current pose into skeleton space.
+    /// </summary>
+    public Vector3 CurrentDirection(HumanoidBone bone, Vector3 canonicalDirection)
+    {
+        var index = RequireRigBone(bone);
+        var global = Skeleton.GetBoneGlobalPose(index).Basis.GetRotation();
+        var canonical = Quaternion.Normalize(_cInverse * global * Quaternion.Conjugate(_k[(int)bone]));
+        return Vector3.Transform(Vector3.Transform(canonicalDirection, canonical), _c);
+    }
+
+    /// <summary>A position in the character's canonical space (metres, from the skeleton origin) in skeleton space.</summary>
+    public Vector3 ToSkeletonSpace(Vector3 canonicalPosition) => Vector3.Transform(canonicalPosition, _c) / MetresPerUnit;
+
     // The T-pose global rotation of a rig bone's parent (skeleton space): a mapped ancestor's C·K times the rest locals of
     // the unmapped bones below it, or the rest when no ancestor is mapped.
     private Quaternion ParentFrame(int index)
