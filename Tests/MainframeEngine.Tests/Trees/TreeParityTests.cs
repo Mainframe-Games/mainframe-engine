@@ -108,7 +108,7 @@ public sealed class TreeParityTests
     [Fact]
     public void TriangleCountsMatchTheProposalTable()
     {
-        // docs/design/future/procedural-trees.md: Oak Medium has 13 806, 6 694 and 3 782 triangles at LOD0–2.
+        // docs/design/procedural-trees.md (the G8b proposal): Oak Medium has 13 806, 6 694 and 3 782 triangles at LOD0–2.
         var lods = new TreeGenerator().Generate(TreeFixture.ParityParams("Oak Medium"));
         Assert.Equal([13806, 6694, 3782], lods.Select(l => l.TriangleCount));
     }

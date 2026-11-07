@@ -27,6 +27,9 @@ public sealed class Tree3DInspector : ICustomInspector, IWorkspaceInspector
     public const string WindAction = "tree-wind";
     public const string LodAction = "tree-lod:";
     public const string BakeAction = "tree-bake";
+    public const string VariantsInput = "tree-variants";
+    public const string VariantsAction = "tree-bake-variants";
+    public const string ColliderAction = "tree-collider";
 
     /// <summary>The bake's folder in the project.</summary>
     public const string BakeFolder = "Assets/Trees";
@@ -38,6 +41,17 @@ public sealed class Tree3DInspector : ICustomInspector, IWorkspaceInspector
 
     /// <summary>Seeds for the dice; tests replace it for a known sequence.</summary>
     internal Random Dice { get; set; } = new();
+
+    /// <summary>How many seeds Bake Variants bakes (G8b.7; view state, not saved).</summary>
+    internal int VariantCount { get; set; } = 4;
+
+    /// <summary>Whether Bake Variants wraps each variant in a <see cref="StaticBody3D"/> with its trunk capsule (view state).</summary>
+    internal bool CreateCollider { get; set; } = true;
+
+    /// <summary>The last Bake Variants result, shown under the bake row of the tree it was baked from.</summary>
+    internal string? VariantsStatus { get; private set; }
+
+    private WeakReference<Tree3D>? _variantsTree;
 
     // ── Header ───────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -94,6 +108,23 @@ public sealed class Tree3DInspector : ICustomInspector, IWorkspaceInspector
             TreeBakeStatus.Stale => "icon-alert-triangle icon-warn",
             _ => "icon-circle-dot icon-muted",
         }).Append(" tree-status-icon\"></span><span class=\"probe-bake-status\">").Append(RmlText.Escape(Status(tree))).Append("</span></div>");
+
+        // Variants (G8b.7): N seeds → meshes, tree scenes and a scatter type for the Terrain dock's Objects mode.
+        var folder = options is null ? null : TreeVariants.Folder(tree);
+        rml.Append("<div class=\"tree-row\"><span class=\"tree-label\" data-tooltip=\"Variants — how many seeds Bake Variants bakes (1–")
+            .Append(TreeVariants.MaxCount).Append("; variant 0 is this tree)\"><span class=\"icon icon-sm icon-stack-2 icon-muted\"></span><span>Variants</span></span>")
+            .Append("<input type=\"text\" class=\"text tree-variants\" data-header-input=\"").Append(VariantsInput).Append("\" value=\"")
+            .Append(VariantCount.ToString(CultureInfo.InvariantCulture)).Append("\"/>");
+        AppendButton(rml, ColliderAction, "box", CreateCollider
+            ? "Create Collider — on: each variant's scene is a StaticBody3D with the tree and its trunk capsule (click: bare trees without collision)"
+            : "Create Collider — off: each variant's scene is the baked tree alone, without collision (click: wrap it in a StaticBody3D with its trunk capsule)", CreateCollider);
+        AppendButton(rml, VariantsAction, "packages", folder is null
+            ? "Bake Variants — needs options or a preset"
+            : $"Bake Variants — {VariantCount} seeds into {folder}: a mesh and a tree scene each, and a scatter type listing them for the Terrain dock's Objects mode");
+        rml.Append("</div>");
+        if (VariantsStatus is { } variants && _variantsTree is not null && _variantsTree.TryGetTarget(out var baked) && ReferenceEquals(baked, tree))
+            rml.Append("<div class=\"probe-bake\"><span class=\"icon icon-sm icon-circle-check icon-ui tree-status-icon\"></span><span class=\"probe-bake-status\" data-tooltip=\"")
+                .Append(RmlText.Escape(variants)).Append("\">").Append(RmlText.Escape(variants)).Append("</span></div>");
         return rml.Append("</div>").ToString();
     }
 
@@ -271,6 +302,15 @@ public sealed class Tree3DInspector : ICustomInspector, IWorkspaceInspector
         }
         else if (action == BakeAction)
             Bake(tree, context);
+        else if (action.StartsWith(VariantsInput + "=", StringComparison.Ordinal))
+        {
+            if (int.TryParse(action[(VariantsInput.Length + 1)..].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var count))
+                VariantCount = Math.Clamp(count, 1, TreeVariants.MaxCount);
+        }
+        else if (action == ColliderAction)
+            CreateCollider = !CreateCollider;
+        else if (action == VariantsAction)
+            BakeVariants(tree);
         else if (action == ImportAction)
             ShowImport(tree, context);
         else
@@ -400,6 +440,26 @@ public sealed class Tree3DInspector : ICustomInspector, IWorkspaceInspector
         Log.Info($"[Editor] Baked '{tree.Name}' to {path}.");
         context.History.Commit(new CompositeAction($"Bake {tree.Name}", new SetPropertyAction(tree, Property(nameof(Tree3D.BakedMesh)), previous, mesh)));
         return path;
+    }
+
+    /// <summary>Runs <see cref="TreeVariants.Bake"/> with the header's count and collider toggle (files only: nothing to undo).</summary>
+    internal TreeVariantBake? BakeVariants(Tree3D tree)
+    {
+        try
+        {
+            var result = TreeVariants.Bake(tree, VariantCount, CreateCollider);
+            _variantsTree = new WeakReference<Tree3D>(tree);
+            VariantsStatus = string.Create(CultureInfo.InvariantCulture,
+                $"{result.Scenes.Count} variant scene(s){(CreateCollider ? " with colliders" : "")} and {Path.GetFileName(result.TypePath)} in {result.Folder}");
+            return result;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Log.Error($"[Editor] Could not bake variants of '{tree.Name}': {e.Message}");
+            VariantsStatus = null;
+            Workspace?.Message.Show(new MessageRequest { Title = "Bake Variants", Message = e.Message });
+            return null;
+        }
     }
 
     private static SetPropertyAction Action(Tree3D tree, string property, object? value)
