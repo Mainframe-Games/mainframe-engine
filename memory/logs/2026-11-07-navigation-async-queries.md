@@ -38,7 +38,11 @@ Branch `feature/navigation-async` (stacked on `feature/navigation-polygons`, #19
 
 - The proposal's thread-pool workers (cached `IThreadPoolWorkItem`s) passed the allocation gate on macOS and Linux but
   not on Windows CI: 4192 bytes per window, a new segment of the pool's global queue as work items flowed through it.
-  The workers became the server's own background threads, asleep on a monitor between batches.
+  The workers became the server's own background threads, asleep on a monitor between batches, but Windows CI still
+  saw 4192 bytes: the main thread ran requests a slow worker had not taken, on its own scratch, which then grew at a
+  tick inside the window. With workers the main thread now only waits. The older `GridQueriesAllocateNothing` gate (one
+  window, a warm-up that skipped JPS and point paths) also tripped on Windows once; it now warms every path and takes
+  the smallest of three windows.
 
 ## State changes
 
