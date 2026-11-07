@@ -84,6 +84,20 @@ float3 waterRipples(float2 xz, float2 dx, float2 dy, float2 off0, float2 off1, f
     return normalize(n);
 }
 
+// The sky the water reflects along R (G8e.6, ADR 0279): the sky's radiance, or with light probes (ADR 0170) the sky only
+// where the probes see it along R (widened with roughness, as lit surfaces' specular occlusion) and their bounce light
+// where they do not, so water under a canopy stops mirroring the bright sky on screen-space misses.
+float3 waterSkyReflection(float3 P, float3 N, float3 Ng, float3 V, float3 R, float roughness)
+{
+    float3 sky = iblSpecular(R, roughness);
+    if (!probesActive())
+        return sky;
+    ProbeSample p = sampleProbes(probeSamplePosition(P, Ng, V));
+    float along = probeApplyStrength(probeSkyVisibilityAlong(p, R));
+    float occlusion = saturate(lerp(along, probeApplyStrength(probeSkyVisibility(p, N)), saturate(roughness)));
+    return sky * occlusion + probeBounce(p, R) * (1.0 - occlusion);
+}
+
 // Specular glints of every light (GGX, F0 = 0.02), shadowed like the PBR light loop. `sunShadow` returns the first
 // directional light's shadow (1 when there is none), for the scattered light and the foam.
 float3 waterLights(float3 N, float3 Ngeo, float3 V, float3 worldPos, float roughness, out float sunShadow)

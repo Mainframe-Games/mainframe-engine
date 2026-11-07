@@ -3,7 +3,7 @@
 - **Date:** 2026-10-09
 - **Status:** accepted
 - **Milestone:** Gameplay toolkit G8 (G8e.7, the last feature phase of the visual-quality plan, ADR 0164)
-- **Spec:** docs/design/future/forest-visual-quality.md → G8e.7 Art pass
+- **Spec:** docs/design/forest.md#visual-quality-g8e (the proposal, since removed) → G8e.7 Art pass
 
 ## Context
 

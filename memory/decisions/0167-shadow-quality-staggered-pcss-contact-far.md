@@ -3,7 +3,7 @@
 - **Date:** 2026-10-09
 - **Status:** accepted (implemented on `forest/sh`, forest slice wave 5)
 - **Milestone:** Gameplay toolkit G8e.2 (ADR 0164's plan)
-- **Spec:** docs/design/future/forest-visual-quality.md#g8e2-shadow-quality; current state in
+- **Spec:** docs/design/forest.md#visual-quality-g8e (the proposal, since removed); current state in
   docs/design/shadow-system.md#shadow-quality-g8e2
 
 ## Context

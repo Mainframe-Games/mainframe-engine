@@ -3,7 +3,7 @@
 - **Date:** 2026-10-09
 - **Status:** accepted (implemented on `forest/gi2`, forest slice wave 6)
 - **Milestone:** Gameplay toolkit G8e.1 (ADR 0164's plan)
-- **Spec:** docs/design/future/forest-visual-quality.md#g8e1-sky-occlusion-and-bounce-light-lightprobevolume; current
+- **Spec:** docs/design/forest.md#visual-quality-g8e (the proposal, since removed); current
   state in docs/design/lighting.md#light-probes, docs/design/post-processing.md#ambient-occlusion-binding and
   docs/design/forest.md#light-probes
 

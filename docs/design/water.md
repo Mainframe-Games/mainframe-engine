@@ -380,12 +380,23 @@ target = wish * (WalkSpeed * scale) + water.FlowAt(GlobalPosition) * FlowPush;  
 - `River3D.LastCarveChange` (`RiverCarveChange`) is new: a carve's undo must restore the terrain's carve record and the
   river's `CarveId` as well as the heights.
 
+## Reflections under probes
+
+G8e.6, [ADR 0279](../../memory/decisions/0279-water-sky-reflection-under-probes.md): with a light probe volume
+(ADR 0170) the sky water reflects (`waterSkyReflection` in `include/water.slang`, both water shaders) is the sky only where
+the probes see it along the reflected ray, widened with roughness as lit surfaces' specular occlusion is, and the probes'
+bounce light where they do not. Screen-space reflections still replace it where the ray finds the scene on screen, so
+water under a canopy no longer mirrors the bright sky on SSR misses. Without probes nothing changes. Render test:
+`water-ssr --count 3` (a roofed pool with a baked volume, SSR off: the water under the roof reflects 0.36 of the open
+water's light; 1.0 without the volume, `--count 4`), golden `water-roof-probes_frame0030.png`.
+
 ## Not yet
 
 From [future/water.md](future/water.md): pond joins, plunge pools carved below falls and the `Faceted` look (the
 palette sheet; Faceted ponds draw with `WaterMaterial3D` for now) (G8c.3); audio (G8c.5); back-face (underwater) shading and water depth writes (G8c.6–8);
-`rendering.sceneTextures` (`Off`/`Half`/`Full`; the copy is always full resolution); G8e.6's wet banks and the probes'
-sky visibility on SSR misses (G8e.1); particles for spray (G6.3). Refracted transparent surfaces behind water are not
+`rendering.sceneTextures` (`Off`/`Half`/`Full`; the copy is always full resolution); G8e.6's wet banks (the terrain
+splat's fragment stage has no image to spare and its vertices no stream for a wetness value; ADR 0279); particles for
+spray (G6.3). Refracted transparent surfaces behind water are not
 in the copy (as in Godot). Pond surfaces have no LOD levels. Buoyancy stays a sample.
 
 ## Tests

@@ -424,6 +424,15 @@ keeps dappled light (R5, the impostor casters at half density); R2's glade fleck
 are denser; `TreeClusterShadowDensity`). Mid-distance clusters (20–40 m) read full but soft: an atlas cell is 256 × 512
 px for a whole twig.
 
+**Shadows, volumetrics, post and upscaling (G8e.2, G8e.3, G8e.4, G8e.8).** These phases merged without before/after
+sets, so these pairs show the phase's features off (`-off`) and on (`-on`) in today's Forest, through the pause menu's
+options (`FOREST_SHOTS=n FOREST_SHOTS_OUT=… build/forest-screenshots.sh 300 --option key=value`), not the Forest as it
+was before the phase: `g8e2-r5-floor` (`pcss=0`, `contact_shadows=0`: the floor's sun flecks get hard edges and the
+ferns lose their contact darkening), `g8e3-r1-glade` (`volumetric_fog=0`: no shafts through the canopy, the air flat
+and pale), `g8e4-r4-vista` (`glow=0`, `grade=0`, `grain=0`, `vignette=0`, `aberration=0`: the AgX image without the
+fitted warm grade and bloom) and `g8e8-r3-bridge` (`upscaling=2`: native 2560 × 1440 against TAAU at 0.75, alike by
+design). Rendered at 2560 × 1440 on 2026-11-07 and scaled to 1600 px.
+
 ### Art pass (G8e.7)
 
 [ADR 0175](../../memory/decisions/0175-forest-art-pass.md); the shots above are the art pass. `g8e7-r1-glade` …
@@ -1132,6 +1141,65 @@ with what happened to each:
 12. Post effects only in Play, not the editor viewport. **Changed:** the editor previews the post-processing profile
     ([ADR 0169](../../memory/decisions/0169-post-processing-profile-and-editor-preview.md)).
 
+## Visual quality (G8e)
+
+G8e gave the Forest its "Unreal look" in eight phases ([ADR 0164](../../memory/decisions/0164-forest-visual-quality-plan.md),
+approved on 2026-10-08). Each phase is an engine feature documented with its subsystem; the Forest's settings for them
+are in [The look](#the-look-forestscenecreateenvironment-the-sun-assetspostprocessmfres) and the sections above.
+
+| Phase | Built | As built |
+|---|---|---|
+| G8e.1 Sky occlusion and bounce light | `LightProbeVolume` (terrain-following, SH L1 sky visibility and bounce), GTAO bent normals, specular occlusion, the Forest's committed bake; the indirect-light view and the editor's probe overlay | [Lighting → Light probes](lighting.md#light-probes), ADRs [0170](../../memory/decisions/0170-light-probe-volume.md), [0275](../../memory/decisions/0275-indirect-light-view-and-probe-overlay.md) |
+| G8e.2 Shadow quality | staggered cascades, coarse casters, PCSS, contact shadows, the far shadow | [Shadow system](shadow-system.md), ADRs [0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md), [0179](../../memory/decisions/0179-consistent-shadow-casters-across-cascades.md) |
+| G8e.3 Volumetric light | the sun through its cascades at ½ resolution with temporal reprojection; a Medium tier | [Post-processing → Volumetric fog](post-processing.md#volumetric-fog), ADRs [0171](../../memory/decisions/0171-volumetric-fog.md), [0276](../../memory/decisions/0276-volumetric-fog-quality-tier.md) |
+| G8e.4 Cinematic post | Godot's tonemappers with AgX, adjustments and `.cube` LUTs, high-quality glow with the glow map, depth of field, film effects | [Color pipeline](color-pipeline.md), ADRs [0168](../../memory/decisions/0168-cinematic-post-chain.md), 0277 |
+| G8e.5 Foliage | Ez Tree leaf clusters, hierarchical wind and gusts (grass too), bark detail, coverage mips, octahedral impostors with per-instance cross-fades, birch, spruce, fir and beech | [Procedural trees → Foliage quality](procedural-trees.md#foliage-quality-adr-0172), ADRs [0172](../../memory/decisions/0172-ez-tree-foliage-quality.md), 0278 |
+| G8e.6 Water | the per-view scene copy, refraction, SSR, caustics, falls and spray; sky reflections under probes | [Water](water.md), ADRs [0173](../../memory/decisions/0173-water-scene-copy-refraction-ssr-falls.md), 0279 |
+| G8e.7 Art pass | the terrain macro texture and `TerrainBlend`, scans and clutter, the understorey, R6/R7, the fitted grade; look-dev against the references | [Art pass](#art-pass-g8e7), [Look-dev](#look-dev-adr-0178), ADRs [0175](../../memory/decisions/0175-forest-art-pass.md), [0177](../../memory/decisions/0177-histogram-auto-exposure.md), [0178](../../memory/decisions/0178-forest-look-dev.md) |
+| G8e.8 TAA upscaling | `scaling3DMode`/`scaling3DScale`, TAAU in the resolve with the mip bias, RCAS, FSR 1; the Forest at 0.75 | [Post-processing → Render scaling](post-processing.md), ADR [0174](../../memory/decisions/0174-taa-upscaling.md) |
+
+Before/after and feature-off/on pairs for every phase but G8e.7 (whose are the look-dev sets) are in
+[Reference shots](#reference-shots).
+
+**Open** (the owner's): the frame budget (p50 ≤ 14 ms at 1440p on an M-series Pro; see [Performance](#performance)) needs
+a quiet-machine `forest-bench` run and an RTX 3060 run; Brogan's sign-off of each phase's reference shots; the
+proposal's open questions 1–14 were built on their defaults (listed below).
+
+### Changes from the G8e proposal
+
+The proposal was `docs/design/future/forest-visual-quality.md`, removed when its phases were closed (it stays in the
+repository's history; its frame diagram is `docs/images/forest-visual-quality-frame.svg`). The build differs from it here:
+
+- **G8e.1:** the sky irradiance stays a cube (the SH L2 move freed nothing needed: set 0 stayed at five images by folding
+  the contact shadow into the occlusion image, RGBA16F rather than RGBA8); the probe debug view is line crosses near the
+  camera (`View › Show Light Probes`), not SH spheres, and cannot colour invalid probes (the bake dilates them away);
+  `rendering.probes` levels, rotated and blended volumes are not built (ADRs 0170, 0275).
+- **G8e.2:** per-cascade `ShadowMaxLod` became `ShadowCasterLod` and `ShadowCoarseCascades` (ADR 0179); the far shadow is
+  a layer of the cascade array (no separate atlas tile, so no `FarShadowResolution`: it shares the cascades' size); the
+  Forest's cascades stay 1024² (2048² cost 4–6 ms) (ADR 0167).
+- **G8e.3:** the march runs in `BeforeTonemap` from the scene pass's depth (no prepass needed); `rendering.volumetricFogQuality`
+  has High and Medium only (ADR 0276); froxels wait for M11's compute (ADR 0171).
+- **G8e.4:** the grade is its own `AfterTonemap` pass, not part of the tonemap; depth of field has one layer, not near and
+  far (ADR 0168); the glow map is set 1 of the tonemap pass (ADR 0277); the test names are `post-grade`, `post-dof`,
+  `post-film`, `glow-high` and `glow-map` rather than `post-cinematic`.
+- **G8e.5:** the cluster atlases and impostors are baked on the CPU, not through `SubViewportCapture`, into a per-machine
+  cache (no `--bake-tree-clusters`); gusts are simplex noise, not a 256² texture, and grass shares them through
+  `WorldEnvironment.WindGusts` (ADR 0278); no `DetailLayers` array; Godot's `VisibilityRange*Margin` and `FadeMode` on
+  every `GeometryInstance3D` are not built: `TreeScatter`'s per-instance levels cross-fade instead, `Tree3D` levels
+  switch hard and draw no impostor; `ImpostorScreenHeight` became `ImpostorDistance`; bark and leaves are painted, not
+  ambientCG scans (ADR 0172).
+- **G8e.6:** refraction and SSR read a per-view scene copy instead of `SceneTextures` (no `rendering.sceneTextures`);
+  SSR misses take the probes' specular occlusion (ADR 0279); wet banks are not built (no image or vertex stream to spare
+  in the terrain splat); caustics have no test of their own (the `water-fall` golden) (ADR 0173).
+- **G8e.7:** the macro texture is baked on the CPU; it does not shade distant terrain or feed the probe bake (that would
+  re-bake the committed probes and refit the grade: a look decision); the look-dev pass (ADR 0178) and playtest fixes
+  (ADRs 0179–0181) went past the proposal's grade.
+- **G8e.8:** TAAU's quality bar was relaxed from 1.5 dB to 4 dB (thin lines) and 2 dB (FSR 1) against native (ADR 0174).
+- **Budget:** the proposal's 12.4 ms estimate at 1440p is not met (≈ 21 ms measured on a base M5 under load); the
+  per-instance tree cross-fade (≈ 2 ms) and a GPU-driven cull are the known costs ([Performance](#performance)).
+- **Open questions 1–14** were built on their defaults (the Forest also re-bakes its probes in the background when the
+  committed bake is stale, `BakeWhenStale`).
+
 ## Changes from the proposal
 
 The proposal was `docs/design/future/forest-showcase.md`, removed when G8d shipped (it stays in the repository's
@@ -1144,7 +1212,7 @@ history). The build differs from it here:
   with a beach, a lake, cliffs, distant mountains and a log cabin the proposal did not have (ADR 0209), about 2 400
   trees instead of ≈ 1 900, and nine reference shots instead of five.
 - **The look went past G8d.** G8e added light probes, GTAO, volumetric fog, the cinematic grade, Ez Tree clusters and
-  impostors, water SSR and refraction, the art pass and TAAU (ADR 0164, [Forest visual quality](future/forest-visual-quality.md)).
+  impostors, water SSR and refraction, the art pass and TAAU (ADR 0164, [Visual quality (G8e)](#visual-quality-g8e)).
   The proposal's "dynamic GI" non-goal still holds, but probes bake sky occlusion and bounce light. The tonemapper is
   AgX, not ACES.
 - **No quality tiers.** One configuration and per-setting pause-menu options ([Budgets](#budgets)) instead of High and
@@ -1160,5 +1228,5 @@ history). The build differs from it here:
 ## Related
 
 [Water](water.md) · [Audio](audio.md) · [Demo](demo.md) · [Cameras & input](cameras-and-input.md) · [Physics](physics.md) ·
-[Projects & GameHost](project-and-gamehost.md) · [Testing](testing.md) · [Forest visual quality (G8e)](future/forest-visual-quality.md) ·
+[Projects & GameHost](project-and-gamehost.md) · [Testing](testing.md) · [Visual quality (G8e)](#visual-quality-g8e) ·
 [ADR 0149](../../memory/decisions/0149-terrain-trees-water-engine-features.md)

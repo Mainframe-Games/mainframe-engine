@@ -266,7 +266,9 @@ public sealed class WaterRefractionScene(HostOptions host) : RenderTestGame(host
 /// falls on the water it is red with SSR and not without; the water away from it is not red either way. Golden at
 /// frame 20. <c>--count 1</c> runs with TAA (the reflection must survive the reactive mask); <c>--count 2</c> renders
 /// the world in a post-processed <see cref="SubViewport"/> with TAA (the editor's case: its own scene copy and resumed
-/// pass) and checks the view's captures.
+/// pass) and checks the view's captures. <c>--count 3</c> (G8e.6, ADR 0279): a procedural sky, a roof over the pool's left
+/// half and a baked <see cref="LightProbeVolume"/>; at frame 30 (SSR off: every reflection is a miss) the water under the
+/// roof reflects far less sky than the open water. <c>--count 4</c>: the same without the volume: both reflect the sky.
 /// </summary>
 public sealed class WaterSsrScene(HostOptions host) : RenderTestGame(host)
 {
@@ -276,6 +278,8 @@ public sealed class WaterSsrScene(HostOptions host) : RenderTestGame(host)
     private WaterMaterial3D _material = null!;
     private SubViewport? _view;
     private uint _frame;
+
+    private bool Roofed => Host.Count is 3 or 4;
 
     protected override void LoadScene()
     {
@@ -301,7 +305,21 @@ public sealed class WaterSsrScene(HostOptions host) : RenderTestGame(host)
         _camera = new Camera3D { Name = "Camera", Position = new Vector3(0f, 1.4f, 3.5f), Fov = 60f, Current = true };
         _camera.LookAt(new Vector3(0f, 0.2f, -3f));
         world.AddChild(_camera);
-        world.AddChild(new WorldEnvironment { Name = "Environment", AmbientColor = new Vector3(0.43f, 0.47f, 0.51f) });
+        world.AddChild(Roofed
+            ? new WorldEnvironment { Name = "Environment", Sky = new Sky { Mode = SkyEnvironmentType.Procedural }, AmbientSource = AmbientSource.Sky, ReflectedLightSource = ReflectedLightSource.Sky }
+            : new WorldEnvironment { Name = "Environment", AmbientColor = new Vector3(0.43f, 0.47f, 0.51f) });
+        if (Roofed)
+        {
+            // A roof 1.6 m over the pool's left half (x −4…0), just above the camera, so its underside shows dark.
+            world.AddChild(new MeshInstance3D
+            {
+                Name = "Roof",
+                Mesh = new BoxMesh { Size = new Vector3(4.4f, 0.2f, 8f) },
+                Position = new Vector3(-2.2f, 1.6f, -0.5f),
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 120, 110, 100) },
+            });
+        }
+
 
         var ground = new StandardMaterial3D { ShadingMode = ShadingMode.Unshaded, AlbedoColor = Color.FromArgb(255, 60, 70, 60) };
         world.AddChild(new MeshInstance3D { Name = "Bed", Mesh = new PlaneMesh { Size = new Vector2(30f, 30f) }, Position = new Vector3(0f, -1f, 0f), MaterialOverride = ground });
@@ -326,6 +344,22 @@ public sealed class WaterSsrScene(HostOptions host) : RenderTestGame(host)
             CausticsStrength = 0f,
         };
         world.AddChild(new MeshInstance3D { Name = "Water", Mesh = WaterSceneKit.Quad(-4f, 4f, -4.1f, 3f, 0f, 1f), MaterialOverride = _material });
+        if (Host.Count == 3)
+        {
+            var volume = new LightProbeVolume
+            {
+                Name = "Probes",
+                Position = new Vector3(0f, 1f, -0.5f),
+                Size = new Vector3(10f, 3f, 10f),
+                ProbeSpacing = Vector3.One,
+                RaysPerProbe = 128,
+                Bounces = 1,
+            };
+            world.AddChild(volume);
+            var bake = volume.Bake(); // before the tree has it: the bake reads the scene's nodes directly
+            Log.Info($"Water probes baked: {bake.Probes} probes in {bake.Elapsed.TotalMilliseconds:0} ms");
+        }
+
         Tree.ChangeScene(scene);
     }
 
@@ -349,6 +383,13 @@ public sealed class WaterSsrScene(HostOptions host) : RenderTestGame(host)
 
     private void Check(FrameCapture capture, bool ssr)
     {
+        if (Roofed)
+        {
+            if (!ssr)
+                CheckRoof(capture);
+            return;
+        }
+
         // The pillar's mirror image across the water plane (y = 0), seen where the camera ray to it crosses the surface.
         var mirror = new Vector3(PillarCentre.X, -0.6f, PillarCentre.Z);
         var redness = Redness(capture, mirror, "the pillar's reflection");
@@ -360,6 +401,31 @@ public sealed class WaterSsrScene(HostOptions host) : RenderTestGame(host)
             Fail($"Without SSR the water shows something red where the pillar's reflection would be (redness {redness:F0}).");
         if (away > 20f)
             Fail($"Open water is red (redness {away:F0}).");
+    }
+
+    // SSR off, so every reflection is the sky: under the roof the probes see little of it (ADR 0279).
+    private void CheckRoof(FrameCapture capture)
+    {
+        var covered = Luminance(capture, new Vector3(-2.2f, 0f, -0.5f), "water under the roof");
+        var open = Luminance(capture, new Vector3(2.2f, 0f, -0.5f), "open water");
+        var ratio = covered / MathF.Max(open, 1e-3f);
+        Log.Info($"Water under a roof ({(Host.Count == 3 ? "probes" : "no probes")}): {covered:F1} vs open {open:F1}, ratio {ratio:F3}");
+        if (Host.Count == 3 && !(ratio < 0.7f))
+            Fail($"With probes the water under the roof should reflect far less sky (ratio {ratio:F3}).");
+        if (Host.Count == 4 && !(ratio > 0.85f))
+            Fail($"Without probes both halves reflect the sky alike (ratio {ratio:F3}).");
+    }
+
+    private float Luminance(FrameCapture capture, Vector3 world, string what)
+    {
+        if (WaterSceneKit.Pixel(_camera, capture, world) is not { } p)
+        {
+            Fail($"The probe at {what} is off screen.");
+            return 0f;
+        }
+
+        var c = WaterSceneKit.Mean(capture, p.X, p.Y);
+        return 0.2126f * c.X + 0.7152f * c.Y + 0.0722f * c.Z;
     }
 
     // Red minus the larger of green and blue (display values) around a world point.

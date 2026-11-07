@@ -77,8 +77,8 @@ changes merged since then are in `just state-pending`.
 
 Priorities, not a feature list: what remains inside each milestone is its rows in `docs/milestones.md`.
 
-1. The Forest frame budget (G8e): a quiet-machine `forest-bench` baseline, then GPU culling for trees
-   (`docs/design/forest.md#performance`).
+1. The Forest frame budget and the owner's sign-offs (G8e): a quiet-machine `forest-bench` at 1440p and an RTX 3060
+   run, then GPU culling for trees (`docs/design/forest.md#visual-quality-g8e`).
 2. The gameplay toolkit's open rows (`docs/milestones.md#gameplay-toolkit-`), owner-pending ones first.
 3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (`just bench` prints `NEW` for each
    benchmark not in it yet).

@@ -3,7 +3,7 @@
 - **Date:** 2026-10-09
 - **Status:** accepted (implemented on `forest/wa`, forest slice wave 6)
 - **Milestone:** Gameplay toolkit G8e.6 (water), with the G8c.3 and G8c.6–8 subsets it needs
-- **Spec:** docs/design/future/forest-visual-quality.md (G8e.6), docs/design/future/water.md (`SceneTextures`, falls);
+- **Spec:** docs/design/forest.md#visual-quality-g8e (the proposal, since removed) (G8e.6), docs/design/future/water.md (`SceneTextures`, falls);
   current state in docs/design/water.md (Scene textures, Falls, Spray), post-processing.md (Water scene copy, TAA)
 
 ## Context
