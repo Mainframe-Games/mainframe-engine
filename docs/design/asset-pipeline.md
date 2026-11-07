@@ -227,6 +227,14 @@ meshoptimizer (skinned surfaces excepted; ADR 0256). Details:
 [Rendering features → Authored LODs on import](rendering-features.md#authored-lods-on-import) and
 [Generated LODs](rendering-features.md#generated-lods).
 
+#### Linked animation libraries (G1c)
+
+`"libraries": [ "Assets/Characters/hero_anims.mfres" ]` puts those `AnimationLibrary` files on the model's
+`AnimationPlayer` **before** its imported clips (the importer creates a player for a model without clips of its own),
+so every instance plays them and a library clip wins over an imported clip of the same name. The pose baker adds the
+library it writes ([Animation and skinning → Pose scripts and baking](animation.md#pose-scripts-and-baking-g1c)). A
+library that fails to load is skipped with a warning.
+
 #### Humanoid map overrides (G1c)
 
 `"humanoid": { "LeftUpperLeg": "Thigh.L", "LeftLowerLeg": "Shin.L" }` maps canonical humanoid bones to the rig's bones

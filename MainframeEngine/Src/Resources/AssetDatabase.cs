@@ -49,6 +49,7 @@ public sealed class AssetIndex
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(float))]
 [JsonSerializable(typeof(float[]))]
+[JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 internal sealed partial class AssetJsonContext : JsonSerializerContext;
 

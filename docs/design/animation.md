@@ -320,6 +320,35 @@ The first step of [animation authoring](future/animation-authoring.md) (G1.12, A
 - **Singularity:** at abduct ±90° (an arm straight up from the T-pose) twist and flex share an axis; reading the angles
   back then gives twist 0.
 
+## Pose scripts and baking (G1c)
+
+G1.13 ([animation authoring](future/animation-authoring.md#pose-script)), in `MainframeEngine/Src/Animation/Authoring/`.
+A pose script is JSON: a few key poses in canonical angles, IK pins, arcs and a root mode; `PoseScriptParser.Parse`
+reads it (every error with its JSON path, unknown properties rejected) and `PoseBaker.Bake` turns it into an ordinary
+`Animation`. Scripts are input only: the keys are the truth.
+
+- **Keys:** `t`, a named `pose` (the first key needs one; later keys start from the previous key), `hips`
+  (`x/y/z/yaw/pitch/roll`), `joints` (any of `flex/abduct/twist` per bone; hinges flex only), `mirror` (left to right, or
+  right to left where only the right is given), `ik` (`"pin"`, `"release"`, `{ "pos": [x, y, z] }` in character space) and
+  `ease` (`linear`, `in`, `out`, `inOut` or a number: the `Transitions` value of the segment **after** the key).
+- **Root:** `inPlace` (default) keeps the keys' hips offsets and ignores arcs, with a note; `motion` keeps horizontal
+  offsets and adds arcs, for root motion with `RootMotionBone` = the hips (`PoseBakeResult.HipsBone`).
+- **Arcs** add `4k·u(1−u)` to the keyed hips height between `from` and `to`: `k = g·T²/8` from the project's gravity, or
+  solved so the apex is `height` above take-off (a note when that is more than 25 % off gravity's apex).
+- **IK** (`TwoBoneIk`): the knee or elbow stays in the plane of the hip or shoulder, the target and the pole (knees
+  forward, elbows back, turned with the upper bone's current pose), each bone turns by the shortest arc so the authored
+  twist is kept, a target out of reach straightens the limb towards it (noted). A pin holds the effector's position and
+  rotation from its key to `release`.
+- **Keys written:** at the script's times, a cubic `Rotation3DTrack` per mapped bone that leaves its rest (and every IK
+  chain bone), a `Position3DTrack` for the hips; quaternions kept in one hemisphere. A 60 Hz pass then samples the clip
+  as played (`ClipSampler`) and adds a key to the IK chain (or the hips) at the worst sample where a pin slides or an arc
+  misses by more than 1 cm, until none does; a pin out of reach is noted rather than chased.
+- **`Animation.BakedHash`** is `AnimationHash.Compute` of the keys written. `PoseLibrary.Write` puts the clip into a
+  library `.mfres` (created as the default library) and replaces a clip of that name only when it is an untouched bake,
+  or when told to (`replace`), so hand fixes are never overwritten by accident; it links the library in the model's
+  `.mfmeta` `libraries` ([Asset pipeline](asset-pipeline.md#linked-animation-libraries-g1c)), changing nothing else there,
+  and notes when the baked clip hides an imported clip of the same name.
+
 ## Guide
 
 [Getting started → Animate a character](../getting-started.md#animate-a-character) walks through exporting from
