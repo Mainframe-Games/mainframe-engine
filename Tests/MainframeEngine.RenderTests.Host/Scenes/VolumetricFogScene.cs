@@ -7,7 +7,8 @@ namespace MainframeEngine.RenderTests.Host.Scenes;
 /// against an unshaded black wall beyond the fog's length. The sun reaches the air only through the hole, so a slanted
 /// beam stands in shadowed fog (the sun is off screen, above and behind the roof); a little sky ambient lights the shadowed
 /// fog. <c>--count</c>: 0 the fog with temporal reprojection; 1 no volumetric fog; 2 the fog with the camera swinging
-/// left and right (the allocation run); 3 the fog without temporal reprojection.
+/// left and right (the allocation run); 3 the fog without temporal reprojection; 4 the fog at
+/// <see cref="VolumetricFogQuality.Medium"/> (G8e.3, ADR 0276: quarter resolution, 12 steps).
 /// </summary>
 public sealed class VolumetricFogScene(HostOptions host) : ShadowSceneBase(host)
 {
@@ -51,6 +52,8 @@ public sealed class VolumetricFogScene(HostOptions host) : ShadowSceneBase(host)
         Environment.VolumetricFogAmbientInject = 0.05f;
         Environment.VolumetricFogNoiseStrength = 0.3f;
         Environment.VolumetricFogTemporalReprojectionEnabled = Host.Count != 3;
+        if (Servers.Render is { } render)
+            render.VolumetricFogQuality = Host.Count == 4 ? VolumetricFogQuality.Medium : VolumetricFogQuality.High;
     }
 
     private static void AddSlab(Node3D scene, StandardMaterial3D material, string name, Vector3 position, Vector3 size) =>

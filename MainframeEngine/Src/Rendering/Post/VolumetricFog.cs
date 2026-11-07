@@ -28,6 +28,9 @@ internal readonly record struct VolumetricFogSettings(
 {
     /// <summary>The march runs: enabled with some density over some length.</summary>
     public bool Active => Enabled && Density > 0f && Length > 0f;
+
+    /// <summary>The march's resolution and steps (the render server's <see cref="RenderServer.VolumetricFogQuality"/>, ADR 0276).</summary>
+    public VolumetricFogQuality Quality { get; init; } = VolumetricFogQuality.High;
 }
 
 /// <summary>
@@ -36,13 +39,14 @@ internal readonly record struct VolumetricFogSettings(
 /// <see cref="WorldEnvironment.VolumetricFogEnabled"/>. Three fullscreen raster passes, after the scene pass, from the
 /// scene depth (no prepass needed):
 /// <list type="number">
-/// <item><c>Post/VolumetricFogMarch</c> at half resolution: from the camera to the surface (or
-/// <see cref="VolumetricFogSettings.Length"/>), <see cref="Steps"/> steps spaced by the detail spread and offset per pixel
+/// <item><c>Post/VolumetricFogMarch</c> at half resolution (quarter at <see cref="VolumetricFogQuality.Medium"/>, ADR
+/// 0276): from the camera to the surface (or <see cref="VolumetricFogSettings.Length"/>), <see cref="Steps"/> steps
+/// (<see cref="MediumSteps"/> at Medium) spaced by the detail spread and offset per pixel
 /// (and per frame, with temporal reprojection) by interleaved gradient noise. Per step the height fog's density × the
 /// density × a wind-drifted 32³ noise; the sun's visibility from one comparison tap of its cascade (or the far shadow);
 /// Henyey–Greenstein in-scattering, the sky's ambient light (× ambient inject) and emission, integrated as Hillaire
 /// (2015) does. RGBA16F: in-scattered light (rgb), transmittance (a).</item>
-/// <item><c>Post/VolumetricFogTemporal</c> at half resolution (with temporal reprojection): the previous result
+/// <item><c>Post/VolumetricFogTemporal</c> at the march's resolution (with temporal reprojection): the previous result
 /// reprojected through last frame's view-projection, clipped to the 3 × 3 neighbourhood's variance box, blended by
 /// the reprojection amount; a ping-pong history in the pool.</item>
 /// <item><c>Post/VolumetricFogComposite</c> at full resolution: a depth-aware upsample, <c>colour · T + in-scatter</c>
@@ -51,12 +55,16 @@ internal readonly record struct VolumetricFogSettings(
 /// </list>
 /// The march binds the view's frame set (set 0: camera, lights, sky irradiance) and the shadow set (set 1), so it reads
 /// exactly what the lit shaders read. Beyond the length the analytic fog takes over (<c>applyFog</c> starts there:
-/// <see cref="WorldEnvironment.GetFrameEnvironment"/>). Allocates nothing per frame.
+/// <see cref="WorldEnvironment.GetFrameEnvironment"/>). Each quality has its own march and history targets and sets
+/// (made the first time it is used), so switching tiers starts a new history. Allocates nothing per frame.
 /// </summary>
 internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog", PostStage.BeforeTonemap, PostEffectOrder.VolumetricFog)
 {
     /// <summary>March steps per ray (the proposal's High).</summary>
     public const int Steps = 24;
+
+    /// <summary>March steps per ray at <see cref="VolumetricFogQuality.Medium"/> (ADR 0276).</summary>
+    public const int MediumSteps = 12;
 
     /// <summary>The noise volume's size (texels per side; it tiles).</summary>
     public const int NoiseSize = 32;
@@ -70,15 +78,36 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
     /// <summary>The temporal history pair.</summary>
     internal static readonly PostTargetDesc HistoryDesc = new("volumetric fog", Format.R16G16B16A16Sfloat, PostTargetScale.Half);
 
+    /// <summary><see cref="MarchDesc"/> at <see cref="VolumetricFogQuality.Medium"/>: quarter resolution.</summary>
+    internal static readonly PostTargetDesc MarchMediumDesc = new("volumetric fog march medium", Format.R16G16B16A16Sfloat, PostTargetScale.Quarter);
+
+    /// <summary><see cref="HistoryDesc"/> at <see cref="VolumetricFogQuality.Medium"/>.</summary>
+    internal static readonly PostTargetDesc HistoryMediumDesc = new("volumetric fog medium", Format.R16G16B16A16Sfloat, PostTargetScale.Quarter);
+
+    /// <summary>Scene pixels per texel of the fog's targets at <paramref name="quality"/>: 2 (half resolution) or 4 (quarter).</summary>
+    public static int ScaleFor(VolumetricFogQuality quality) => quality == VolumetricFogQuality.Medium ? 4 : 2;
+
+    /// <summary>The march's steps at <paramref name="quality"/>.</summary>
+    public static int StepsFor(VolumetricFogQuality quality) => quality == VolumetricFogQuality.Medium ? MediumSteps : Steps;
+
+    // One quality's march and history targets and the sets that read them.
+    private sealed class Tier
+    {
+        public RenderTarget March = null!;
+        public PostHistory<RenderTarget> History = null!;
+        public RenderTarget First = null!; // the history pair's first target: temporal set i reads target i as last frame's
+        public DescriptorSet MarchSet;
+        public readonly DescriptorSet[] TemporalSets = new DescriptorSet[2];
+        public readonly DescriptorSet[] CompositeSets = new DescriptorSet[3]; // fog = history 0, history 1, the march
+    }
+
     /// <summary>The fogged scene before it is copied back.</summary>
     internal static readonly PostTargetDesc CompositeDesc = new("volumetric fog composite", SceneTextures.ColorFormat);
 
     private static byte[]? s_noise;
 
     private IVulkanContext _ctx = null!;
-    private RenderTarget _march = null!;
-    private PostHistory<RenderTarget> _history = null!;
-    private RenderTarget _first = null!; // the history pair's first target: temporal set i reads target i as last frame's
+    private readonly Tier?[] _tiers = new Tier?[2]; // by VolumetricFogQuality
     private GpuTexture _noise = null!;
     private Sampler _pointSampler;
     private Sampler _linearSampler;
@@ -86,9 +115,6 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
     private DescriptorSetLayout _temporalSetLayout; // 0 march, 1 history, 2 scene depth
     private DescriptorSetLayout _compositeSetLayout; // 0 scene colour, 1 fog, 2 scene depth
     private DescriptorPool _pool;
-    private DescriptorSet _marchSet;
-    private readonly DescriptorSet[] _temporalSets = new DescriptorSet[2];
-    private readonly DescriptorSet[] _compositeSets = new DescriptorSet[3]; // fog = history 0, history 1, the march
     private IShadowDescriptors? _shadows;
     private PipelineLayout _marchLayout;
     private PipelineLayout _temporalLayout;
@@ -120,9 +146,6 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
     {
         var ctx = context.Vulkan;
         _ctx = ctx;
-        var march = _march = context.Targets.Get(MarchDesc);
-        _history = context.Targets.GetHistory(HistoryDesc);
-        _first = _history.Previous;
         var composite = context.Targets.Get(CompositeDesc);
         _noise = GpuTexture.Create3D(ctx, NoiseSize, NoiseSize, NoiseSize, Format.R8G8B8A8Unorm, Noise(), TextureSampling.LinearRepeat);
         _pointSampler = CreateSampler(ctx, Filter.Nearest);
@@ -134,32 +157,55 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
             [binding with { Binding = 0 }, binding with { Binding = 1 }, binding with { Binding = 2 }], "volumetric fog temporal");
         _compositeSetLayout = PipelineBuilder.CreateSetLayout(ctx,
             [binding with { Binding = 0 }, binding with { Binding = 1 }, binding with { Binding = 2 }], "volumetric fog composite");
-        _pool = PipelineBuilder.CreatePool(ctx, 6, [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 17 }], "volumetric fog");
-        _marchSet = PipelineBuilder.AllocateSet(ctx, _pool, _marchSetLayout, "volumetric fog march");
-        for (var i = 0; i < _temporalSets.Length; i++)
-            _temporalSets[i] = PipelineBuilder.AllocateSet(ctx, _pool, _temporalSetLayout, "volumetric fog temporal");
-        for (var i = 0; i < _compositeSets.Length; i++)
-            _compositeSets[i] = PipelineBuilder.AllocateSet(ctx, _pool, _compositeSetLayout, "volumetric fog composite");
-        WriteSets(context.Scene);
+        // Two tiers × (march + 2 temporal + 3 composite sets; 2 + 6 + 9 images).
+        _pool = PipelineBuilder.CreatePool(ctx, 12, [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 34 }], "volumetric fog");
+        var tier = TierFor(context, context.Settings.VolumetricFog.Quality);
 
         // The temporal pass binds the frame set (set 0: this and last frame's matrices); the march also the shadow set.
         _temporalLayout = ctx.Frame.CreatePipelineLayout(null, [_temporalSetLayout], "volumetric fog temporal");
-        _temporalPipeline = PipelineBuilder.Create(ctx, new PipelineState(), _temporalLayout, _history.Current.RenderPass,
+        _temporalPipeline = PipelineBuilder.Create(ctx, new PipelineState(), _temporalLayout, tier.History.Current.RenderPass,
             "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/VolumetricFogTemporal.vk.frag.spv", [], [], "volumetric fog temporal");
         _compositeLayout = PipelineBuilder.CreateLayout(ctx, [_compositeSetLayout], (uint)sizeof(CompositePush), ShaderStageFlags.FragmentBit, "volumetric fog composite");
         _compositePipeline = PipelineBuilder.Create(ctx, new PipelineState(), _compositeLayout, composite.RenderPass,
             "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/VolumetricFogComposite.vk.frag.spv", [], [], "volumetric fog composite");
-        EnsureMarchPipeline(ShadowsFor(context), march.RenderPass);
+        EnsureMarchPipeline(ShadowsFor(context), tier.March.RenderPass);
+    }
+
+    // The tier's targets and sets, made on first use (every tier's targets share a format, so the pipelines fit all).
+    private Tier TierFor(PostEffectContext context, VolumetricFogQuality quality)
+    {
+        var index = quality == VolumetricFogQuality.Medium ? 0 : 1;
+        if (_tiers[index] is { } existing)
+            return existing;
+        var medium = quality == VolumetricFogQuality.Medium;
+        var tier = new Tier
+        {
+            March = context.Targets.Get(medium ? MarchMediumDesc : MarchDesc),
+            History = context.Targets.GetHistory(medium ? HistoryMediumDesc : HistoryDesc),
+        };
+        tier.First = tier.History.Previous;
+        tier.MarchSet = PipelineBuilder.AllocateSet(_ctx, _pool, _marchSetLayout, "volumetric fog march");
+        for (var i = 0; i < tier.TemporalSets.Length; i++)
+            tier.TemporalSets[i] = PipelineBuilder.AllocateSet(_ctx, _pool, _temporalSetLayout, "volumetric fog temporal");
+        for (var i = 0; i < tier.CompositeSets.Length; i++)
+            tier.CompositeSets[i] = PipelineBuilder.AllocateSet(_ctx, _pool, _compositeSetLayout, "volumetric fog composite");
+        WriteSets(tier, context.Scene);
+        return _tiers[index] = tier;
     }
 
     protected override void OnBeginFrame(PostEffectContext context)
     {
         if (context.Settings.VolumetricFog.TemporalReprojection)
-            _history.Advance(context.FrameNumber);
+            TierFor(context, context.Settings.VolumetricFog.Quality).History.Advance(context.FrameNumber);
     }
 
     /// <summary>After a resize (device idle): the scene's images and the pooled targets are new.</summary>
-    protected override void OnResize(PostEffectContext context) => WriteSets(context.Scene);
+    protected override void OnResize(PostEffectContext context)
+    {
+        foreach (var tier in _tiers)
+            if (tier is not null)
+                WriteSets(tier, context.Scene);
+    }
 
     protected override void OnRecord(PostEffectContext context)
     {
@@ -169,19 +215,21 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
         var ctx = _ctx;
         var vk = ctx.Vk;
         var cb = context.CommandBuffer;
-        var march = context.Targets.Get(MarchDesc);
+        var tier = TierFor(context, settings.Quality);
+        var march = tier.March;
         EnsureMarchPipeline(ShadowsFor(context), march.RenderPass);
         _gpu = ctx.GpuProfiler;
 
         // 1. The march (half resolution).
         var temporal = settings.TemporalReprojection;
         var marchPush = MarchParams(settings, march.Extent, context.Scene.Extent, temporal ? context.FrameNumber : (ulong?)null);
+        var history = tier.History;
         march.Begin(cb, default);
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _marchPipeline);
         var sets = stackalloc DescriptorSet[3];
         sets[0] = ctx.Frame.SetFor(context.View);
         sets[1] = _shadows!.GetMainSet();
-        sets[2] = _marchSet;
+        sets[2] = tier.MarchSet;
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _marchLayout, 0, 3, sets, 0, null);
         vk.CmdPushConstants(cb, _marchLayout, FrameContext.PushConstantStages, 0, (uint)sizeof(MarchPush), &marchPush);
         PipelineBuilder.SetViewport(vk, cb, march.Extent, flipY: false);
@@ -189,10 +237,10 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
         march.End(cb);
 
         // 2. Temporal reprojection (half resolution) into the history's current target.
-        var fogSet = _compositeSets[2];
+        var fogSet = tier.CompositeSets[2];
         if (temporal)
         {
-            var valid = _history.IsValid && context.Camera.HistoryValid;
+            var valid = history.IsValid && context.Camera.HistoryValid;
             if (valid)
             {
                 AccumulatedFrames++;
@@ -201,28 +249,28 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
             {
                 ResetFrames++;
                 // Last frame's target may never have been written (undefined layout): clear it so the set can bind it.
-                _history.Previous.Begin(cb, default);
-                _history.Previous.End(cb);
+                history.Previous.Begin(cb, default);
+                history.Previous.End(cb);
             }
 
-            var target = _history.Current;
-            var previousIndex = ReferenceEquals(_history.Previous, _first) ? 0 : 1;
+            var target = history.Current;
+            var previousIndex = ReferenceEquals(history.Previous, tier.First) ? 0 : 1;
             target.Begin(cb, default);
             vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _temporalPipeline);
             sets[0] = ctx.Frame.SetFor(context.View);
-            sets[1] = _temporalSets[previousIndex];
+            sets[1] = tier.TemporalSets[previousIndex];
             vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _temporalLayout, 0, 2, sets, 0, null);
             var temporalPush = new TemporalPush
             {
                 Params = new Vector4(valid ? settings.TemporalReprojectionAmount : 0f, ClipGamma, target.Extent.Width, target.Extent.Height),
-                Scene = new Vector4(context.Scene.Extent.Width, context.Scene.Extent.Height, settings.Length, 0f),
+                Scene = new Vector4(context.Scene.Extent.Width, context.Scene.Extent.Height, settings.Length, ScaleFor(settings.Quality)),
             };
             vk.CmdPushConstants(cb, _temporalLayout, FrameContext.PushConstantStages, 0, (uint)sizeof(TemporalPush), &temporalPush);
             PipelineBuilder.SetViewport(vk, cb, target.Extent, flipY: false);
             vk.CmdDraw(cb, 3, 1, 0, 0);
             target.End(cb);
-            _history.MarkWritten();
-            fogSet = _compositeSets[ReferenceEquals(target, _first) ? 0 : 1];
+            history.MarkWritten();
+            fogSet = tier.CompositeSets[ReferenceEquals(target, tier.First) ? 0 : 1];
         }
 
         // 3. The composite (full resolution), then back into the scene colour.
@@ -231,7 +279,7 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
         var compositePush = new CompositePush
         {
             Depth = new Vector4(projection.M33, projection.M43, projection.M34, projection.M44),
-            Params = new Vector4(settings.SkyAffect, march.Extent.Width, march.Extent.Height, 0f),
+            Params = new Vector4(settings.SkyAffect, march.Extent.Width, march.Extent.Height, ScaleFor(settings.Quality)),
         };
         composite.Begin(cb, default);
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _compositePipeline);
@@ -252,9 +300,9 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
     {
         Scattering = new Vector4(settings.Albedo * settings.Density, settings.Density),
         Emission = new Vector4(settings.Emission * settings.Density, settings.Anisotropy),
-        Ray = new Vector4(settings.Length, settings.DetailSpread, Steps, frame is { } f ? f % 64 : -1f),
+        Ray = new Vector4(settings.Length, settings.DetailSpread, StepsFor(settings.Quality), frame is { } f ? f % 64 : -1f),
         Height = new Vector4(settings.Height, settings.HeightDensity, settings.AmbientInject, 0f),
-        Noise = new Vector4(1f / settings.NoiseScale, settings.NoiseStrength, 0f, 0f),
+        Noise = new Vector4(1f / settings.NoiseScale, settings.NoiseStrength, ScaleFor(settings.Quality), 0f),
         Sizes = new Vector4(march.Width, march.Height, scene.Width, scene.Height),
     };
 
@@ -354,30 +402,30 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
             "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/VolumetricFogMarch.vk.frag.spv", [], [], "volumetric fog march");
     }
 
-    private void WriteSets(SceneTextures scene)
+    private void WriteSets(Tier tier, SceneTextures scene)
     {
         var depth = Image(_pointSampler, scene.Depth, ImageLayout.DepthStencilReadOnlyOptimal);
-        PipelineBuilder.WriteImage(_ctx, _marchSet, 0, depth);
-        PipelineBuilder.WriteImage(_ctx, _marchSet, 1, Image(_noise.Sampler, _noise.View, ImageLayout.ShaderReadOnlyOptimal));
+        PipelineBuilder.WriteImage(_ctx, tier.MarchSet, 0, depth);
+        PipelineBuilder.WriteImage(_ctx, tier.MarchSet, 1, Image(_noise.Sampler, _noise.View, ImageLayout.ShaderReadOnlyOptimal));
 
         // The pool hands out the same target objects after a resize (their views are new).
-        var march = Image(_pointSampler, _march.GetColor(0).View, ImageLayout.ShaderReadOnlyOptimal);
-        var second = ReferenceEquals(_history.Current, _first) ? _history.Previous : _history.Current;
+        var march = Image(_pointSampler, tier.March.GetColor(0).View, ImageLayout.ShaderReadOnlyOptimal);
+        var second = ReferenceEquals(tier.History.Current, tier.First) ? tier.History.Previous : tier.History.Current;
         for (var i = 0; i < 2; i++)
         {
-            var previous = i == 0 ? _first : second;
-            PipelineBuilder.WriteImage(_ctx, _temporalSets[i], 0, march);
-            PipelineBuilder.WriteImage(_ctx, _temporalSets[i], 1, Image(_linearSampler, previous.GetColor(0).View, ImageLayout.ShaderReadOnlyOptimal));
-            PipelineBuilder.WriteImage(_ctx, _temporalSets[i], 2, depth);
+            var previous = i == 0 ? tier.First : second;
+            PipelineBuilder.WriteImage(_ctx, tier.TemporalSets[i], 0, march);
+            PipelineBuilder.WriteImage(_ctx, tier.TemporalSets[i], 1, Image(_linearSampler, previous.GetColor(0).View, ImageLayout.ShaderReadOnlyOptimal));
+            PipelineBuilder.WriteImage(_ctx, tier.TemporalSets[i], 2, depth);
         }
 
         var color = Image(_pointSampler, scene.Color, ImageLayout.ShaderReadOnlyOptimal);
-        for (var i = 0; i < _compositeSets.Length; i++)
+        for (var i = 0; i < tier.CompositeSets.Length; i++)
         {
-            var fog = i < 2 ? Image(_pointSampler, (i == 0 ? _first : second).GetColor(0).View, ImageLayout.ShaderReadOnlyOptimal) : march;
-            PipelineBuilder.WriteImage(_ctx, _compositeSets[i], 0, color);
-            PipelineBuilder.WriteImage(_ctx, _compositeSets[i], 1, fog);
-            PipelineBuilder.WriteImage(_ctx, _compositeSets[i], 2, depth);
+            var fog = i < 2 ? Image(_pointSampler, (i == 0 ? tier.First : second).GetColor(0).View, ImageLayout.ShaderReadOnlyOptimal) : march;
+            PipelineBuilder.WriteImage(_ctx, tier.CompositeSets[i], 0, color);
+            PipelineBuilder.WriteImage(_ctx, tier.CompositeSets[i], 1, fog);
+            PipelineBuilder.WriteImage(_ctx, tier.CompositeSets[i], 2, depth);
         }
     }
 

@@ -445,6 +445,13 @@ packed into `PostEffectSettings.VolumetricFog` by the render server. A `BeforeTo
   `WorldEnvironment.GetFrameEnvironment`), so the air is counted once.
 - **Noise.** With temporal reprojection the step offset rotates every frame and the history averages it; without, it is
   fixed per pixel (a still image shows a fine dither instead of banding).
+- **Quality** (G8e.3, [ADR 0276](../../memory/decisions/0276-volumetric-fog-quality-tier.md);
+  `rendering.volumetricFogQuality`, `RenderServer.VolumetricFogQuality`, every view; the editor's view follows the
+  project): `High` (default) is the table above; `Medium` marches 12 steps (`MediumSteps`) into quarter-resolution
+  targets (`volumetric fog march medium`, `volumetric fog medium`) and composites from them: about a quarter of the
+  march's cost, softer shaft edges and more step banding. The passes take the scale (2 or 4 scene pixels per fog texel,
+  `ScaleFor`) as a push constant (`include/volumetric_fog.slang`'s `volumetricPixel`). Each tier has its own targets
+  and sets, made the first time it is used, so a switch starts a new history.
 - **Cost** and the Forest's values: [ADR 0171](../../memory/decisions/0171-volumetric-fog.md#consequences),
   [Forest](forest.md). `RenderServer.VolumetricFogGpuMilliseconds` times the three passes (the Forest benchmark reports it).
 
@@ -474,7 +481,11 @@ M5, two runs each): `Average` 0.13 ms, `Histogram` 0.15–0.16 ms. No debug view
 `RenderServer.DebugView = RenderDebugView.Velocity` replaces the final image with the motion vectors (it turns the
 prepass on): red = 128/255 + velocity.x × 16, green the same for y, blue 128/255, written as display values so a capture
 decodes exactly (`VelocityDebugView.Decode`); still is 128 grey. `RenderDebugView.AmbientOcclusion` shows the SSAO image
-(red as grey) on frames SSAO drew. `MAINFRAME_DEBUG_VIEW=velocity|ao` sets the view at start-up.
+(red as grey) on frames SSAO drew. `RenderDebugView.IndirectLight` (ADR 0275) is not a post effect: the view's lights UBO
+is written without lights, so it shows the ambient term alone ([Lighting → Debugging the
+probes](lighting.md#debugging-the-probes)). `MAINFRAME_DEBUG_VIEW=velocity|ao|indirect` sets the view at start-up.
+A `SubViewport` has its own (`SubViewport.DebugView`, runtime only; the editor's View menu sets it on the scene's view):
+velocity and AO need the view's `PostProcessing`.
 
 ## Settings
 
@@ -604,7 +615,9 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 - **ADR 0171** (`VolumetricFogTests`; golden `volumetric-fog_frame0030` on both drivers): a beam of sunlight through a hole
   in a roof stands > 3× above the shadowed fog beside it (which the sky ambient still lights; flat without volumetric
   fog), still frames are stable once converged (< 0.25 mean code change frame to frame), 0 B per frame with a swinging
-  camera. Unit tests: Godot's defaults, the packing and clamps, the analytic fog's start distance, the stage and enable
+  camera; at `Medium` (`AtMediumQualityTheBeamStillStandsOut`, golden `volumetric-fog-medium_frame0030` on both drivers,
+  ADR 0276) the beam passes the same checks. Unit tests: Godot's defaults, the packing and clamps, the tiers' steps,
+  scales and target sizes, the `volumetricFogQuality` setting's round trip, the analytic fog's start distance, the stage and enable
   rule, Henyey–Greenstein's normalisation, the step spacing, the noise volume (full range, tiling), the push blocks, the
   scene round trip.
 - **Unit tests** (`PostProcessingTests`): stage and order sorting, enable rules and needs, lazy creation and disposal,

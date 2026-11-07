@@ -164,7 +164,7 @@ target will be another.
 - Volumetric fog (ADR 0171): sun only (no local lights; froxels wait for M11's compute); one shadow tap per step (no
   PCSS, no cascade blend: a faint step at a cascade boundary in thin fog); transparent surfaces and water get the fog of
   the air behind them (they write no depth); the sky ambient it scatters is not occluded under the canopy until G8e.1's
-  probes; no quality setting yet (always ½ res × 24 steps).
+  probes; two quality tiers only (`rendering.volumetricFogQuality`: High ½ res × 24 steps, Medium ¼ res × 12; ADR 0276).
 - Depth of field has one layer: a near-field blur over a high-frequency background shows half-resolution sparkle along
   its silhouette (separate near/far layers and TAA would fix it; ADR 0168). No lens dirt (`GlowMap`) yet.
 

@@ -20,6 +20,13 @@ public enum RenderDebugView
     /// (white = unoccluded). Shows the scene as it is while the world's SSAO is off.
     /// </summary>
     AmbientOcclusion,
+
+    /// <summary>
+    /// The ambient term only (G8e.1, ADR 0275): the view's lights UBO holds no directional, point or spot lights, so
+    /// every lit surface shows the sky's light, the light probes' sky visibility and bounce, and the AO, with its albedo;
+    /// emission, fog and post-processing stay. Shows where probes leak light or leave dark pockets.
+    /// </summary>
+    IndirectLight,
 }
 
 /// <summary>

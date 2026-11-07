@@ -198,9 +198,30 @@ public sealed class VolumetricFogTests
         Assert.Equal(0.6f, push.Emission.W);
         Assert.Equal(new Vector4(50f, 2f, VolumetricFogEffect.Steps, 70 % 64), push.Ray);
         Assert.Equal(new Vector4(3f, 0.1f, 0.5f, 0f), push.Height);
-        Assert.Equal(new Vector4(0.1f, 0.4f, 0f, 0f), push.Noise);
+        Assert.Equal(new Vector4(0.1f, 0.4f, 2f, 0f), push.Noise); // z = scene pixels per march texel
         Assert.Equal(new Vector4(960, 540, 1920, 1080), push.Sizes);
         Assert.Equal(-1f, VolumetricFogEffect.MarchParams(env.VolumetricFogSettings, default, default, null).Ray.W); // fixed noise
+
+        // G8e.3 (ADR 0276): Medium marches 12 steps; the world's settings default to High (and so does default(…)).
+        Assert.Equal(VolumetricFogQuality.High, env.VolumetricFogSettings.Quality);
+        Assert.Equal(VolumetricFogQuality.High, default(VolumetricFogSettings).Quality);
+        var medium = env.VolumetricFogSettings with { Quality = VolumetricFogQuality.Medium };
+        Assert.Equal(VolumetricFogEffect.MediumSteps, VolumetricFogEffect.MarchParams(medium, default, default, null).Ray.Z);
+        Assert.Equal(4f, VolumetricFogEffect.MarchParams(medium, default, default, null).Noise.Z);
+        Assert.Equal(PostTargetScale.Quarter, VolumetricFogEffect.MarchMediumDesc.Scale);
+        Assert.Equal(PostTargetScale.Half, VolumetricFogEffect.MarchDesc.Scale);
+    }
+
+    [Fact]
+    public void TheVolumetricFogQualitySettingRoundTrips()
+    {
+        Assert.Equal(VolumetricFogQuality.High, new ProjectSettings().Rendering.VolumetricFogQuality);
+        Assert.DoesNotContain("volumetricFogQuality", System.Text.Encoding.UTF8.GetString(new ProjectSettings().ToJson()), StringComparison.Ordinal);
+        var settings = new ProjectSettings();
+        settings.Rendering.VolumetricFogQuality = VolumetricFogQuality.Medium;
+        Assert.Equal(VolumetricFogQuality.Medium, ProjectSettings.Parse(settings.ToJson(), "test.mfproj").Rendering.VolumetricFogQuality);
+        Assert.Equal(VolumetricFogQuality.Medium, ProjectSettings.Parse(System.Text.Encoding.UTF8.GetBytes(
+            """{ "format": 2, "rendering": { "volumetricFogQuality": "medium" } }"""), "test.mfproj").Rendering.VolumetricFogQuality);
     }
 
     [Fact]

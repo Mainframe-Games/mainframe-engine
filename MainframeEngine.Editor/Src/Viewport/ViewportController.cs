@@ -97,6 +97,19 @@ public sealed partial class ViewportController : Node
     /// </summary>
     public bool NavigationVisible { get; set; } = true;
 
+    /// <summary>
+    /// The 3D view's renderer debug view (G8e.1, ADR 0275; View menu, not saved): <see cref="RenderDebugView.IndirectLight"/>
+    /// draws the scene without direct lights, <see cref="RenderDebugView.AmbientOcclusion"/> and
+    /// <see cref="RenderDebugView.Velocity"/> replace the image (they need Preview Post-Processing on).
+    /// </summary>
+    public RenderDebugView DebugView { get; set; }
+
+    /// <summary>View › Show Light Probes (G8e.1, ADR 0275): baked probes near the camera as crosses (<see cref="LightProbeOverlay"/>).</summary>
+    public bool ProbesVisible { get; set; }
+
+    /// <summary>Probes the overlay drew last frame (tests).</summary>
+    internal int ProbesDrawn { get; private set; }
+
     /// <summary>The view rectangle in window points (dp).</summary>
     public LayoutRect ViewRect => _workspace.Layout.ViewportImage;
 
@@ -225,6 +238,9 @@ public sealed partial class ViewportController : Node
         if (view2D)
             viewport.CanvasTransform = Transform2D.FromTrs(pixels * 0.5f - scene.Camera.Center2D * scene.Camera.Zoom2D, 0f, new Vector2(scene.Camera.Zoom2D));
         ApplyPostPreview(viewport, PostPreview && !view2D);
+        var debugView = view2D ? RenderDebugView.None : DebugView;
+        if (viewport.DebugView != debugView)
+            viewport.DebugView = debugView;
         if (_workspace.Tree?.Servers.Get<NavigationServer2D>() is { } navigation)
             navigation.DebugDrawEnabled = NavigationVisible;
         if (_workspace.Tree?.Servers.Get<NavigationServer3D>() is { } navigation3D)
@@ -276,6 +292,9 @@ public sealed partial class ViewportController : Node
         var waterSsr = rendering?.WaterSsr ?? WaterSsrQuality.Low; // ADR 0173
         if (Tree?.Servers.Render is { } render && render.WaterSsr != waterSsr)
             render.WaterSsr = waterSsr;
+        var fogQuality = rendering?.VolumetricFogQuality ?? VolumetricFogQuality.High; // G8e.3
+        if (Tree?.Servers.Render is { } server && server.VolumetricFogQuality != fogQuality)
+            server.VolumetricFogQuality = fogQuality;
     }
 
     // ── UI preview backdrop ──────────────────────────────────────────────────────────────────────────────────────
@@ -877,6 +896,7 @@ public sealed partial class ViewportController : Node
                     DrawJoint(overlay, joint);
             }
 
+        ProbesDrawn = ProbesVisible ? LightProbeOverlay.Draw(scene.Root, camera.Position, lines) : 0;
         _workspace.Curves.Draw3D(overlay, CurveView(scene));
         _workspace.Tools.Active?.DrawOverlay(overlay);
         DrawGizmo3D(scene, pixels, displayHeight);
