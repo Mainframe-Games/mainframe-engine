@@ -59,11 +59,12 @@ public sealed class RenderServer : IServer
         {
             "velocity" => RenderDebugView.Velocity,
             "ao" or "ssao" => RenderDebugView.AmbientOcclusion,
+            "indirect" => RenderDebugView.IndirectLight,
             _ => RenderDebugView.None,
         };
     }
 
-    /// <summary>Set to <c>velocity</c> or <c>ao</c> to start with that <see cref="DebugView"/> (tuning, QA).</summary>
+    /// <summary>Set to <c>velocity</c>, <c>ao</c> or <c>indirect</c> to start with that <see cref="DebugView"/> (tuning, QA).</summary>
     public const string DebugViewVariable = "MAINFRAME_DEBUG_VIEW";
 
     private RenderDebugView _startDebugView; // applied once the Vulkan renderer exists
@@ -86,7 +87,8 @@ public sealed class RenderServer : IServer
     /// <summary>
     /// Replaces the main view's final image with an intermediate buffer (ADR 0163): <see cref="RenderDebugView.Velocity"/>
     /// shows the motion vectors (and runs the depth prepass), <see cref="RenderDebugView.AmbientOcclusion"/> the SSAO
-    /// (ADR 0165). <c>MAINFRAME_DEBUG_VIEW</c> (<see cref="DebugViewVariable"/>) sets it at start-up.
+    /// (ADR 0165), <see cref="RenderDebugView.IndirectLight"/> the ambient term alone (ADR 0275). <c>MAINFRAME_DEBUG_VIEW</c>
+    /// (<see cref="DebugViewVariable"/>) sets it at start-up. A <see cref="SubViewport"/> has its own (<see cref="SubViewport.DebugView"/>).
     /// </summary>
     public RenderDebugView DebugView
     {
@@ -97,6 +99,9 @@ public sealed class RenderServer : IServer
                 host.DebugView = value;
         }
     }
+
+    // The main view's lights UBO keeps its lights unless the debug view is IndirectLight (ADR 0275).
+    private bool MainDirectLights => DebugView != RenderDebugView.IndirectLight;
 
     /// <summary>GPU time of the SSAO passes (ADR 0165) in a recent frame, in milliseconds (0 while SSAO is off or untimed).</summary>
     public double SsaoGpuMilliseconds => PostEffects?.Find<SsaoEffect>() is { IsCreated: true } ssao ? ssao.LastGpuMilliseconds : 0;
@@ -526,7 +531,7 @@ public sealed class RenderServer : IServer
             var world = root.World3D;
             vk.Frame.Environment = world.GetFrameEnvironment();
             BindSkyLighting(vk.Frame, world, _mainDraws);
-            vk.Frame.Begin(camera, world.Lights); // the main pass rewrites the same data
+            vk.Frame.Begin(camera, world.Lights, shadows: true, MainDirectLights); // the main pass rewrites the same data
             var meshes = Meshes!;
             meshes.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled);
             // ADR 0174: the main view's frame set and viewport are at its render size; picks are in window pixels.
@@ -573,7 +578,8 @@ public sealed class RenderServer : IServer
             // ADR 0171: while the view runs the volumetric fog, the analytic fog starts where it ends.
             frame.Environment = world.GetFrameEnvironment(post is { Settings.VolumetricFog.Active: true });
             BindSkyLighting(frame, world, targets.Draws);
-            frame.Begin(camera, world.Lights, shadows: ReferenceEquals(sub, _shadowView) && _shadowViewRenderedFrame == vk.FrameNumber);
+            frame.Begin(camera, world.Lights, shadows: ReferenceEquals(sub, _shadowView) && _shadowViewRenderedFrame == vk.FrameNumber,
+                directLights: sub.DebugView != RenderDebugView.IndirectLight);
             meshes = world.GeometryList.Count > 0 ? Meshes : null;
             meshes?.Prepare(targets.Draws, world, camera, collectCasters: false, extent.Height);
         }
@@ -672,7 +678,7 @@ public sealed class RenderServer : IServer
             world = attributes.ApplyTo(world);
         var contact = ContactShadowSettings.For(PrimaryShadowLight(sub.World3D.Lights),
             _shadows is { ContactShadows: true } && ReferenceEquals(sub, _shadowView));
-        var settings = new PostEffectSettings(world, sub.AntiAliasing, RenderDebugView.None, Math.Clamp(sub.TaaSharpness, 0f, 1f))
+        var settings = new PostEffectSettings(world, sub.AntiAliasing, sub.DebugView, Math.Clamp(sub.TaaSharpness, 0f, 1f))
         {
             ContactShadows = contact,
             VolumetricFog = sub.World3D.Environment?.VolumetricFogSettings ?? default,
@@ -846,7 +852,7 @@ public sealed class RenderServer : IServer
         frame.SetView(0, default);
         frame.Environment = MainEnvironment(world, vk);
         BindSkyLighting(frame, world, _mainDraws);
-        frame.Begin(camera!, world.Lights); // the scene pass rewrites the same data
+        frame.Begin(camera!, world.Lights, shadows: true, MainDirectLights); // the scene pass rewrites the same data
         MeshRenderer? meshes = null;
         if (world.GeometryList.Count > 0)
         {
@@ -904,7 +910,7 @@ public sealed class RenderServer : IServer
             vk.Frame.SetView(0, default);
             vk.Frame.Environment = viewport.IsTreeRoot ? MainEnvironment(world, vk) : world.Environment?.FrameEnvironment ?? default;
             BindSkyLighting(vk.Frame, world, _mainDraws);
-            vk.Frame.Begin(camera, world.Lights); // shared set 0: camera + lights, once per frame
+            vk.Frame.Begin(camera, world.Lights, shadows: true, !viewport.IsTreeRoot || MainDirectLights); // shared set 0: camera + lights, once per frame
             MeshRenderer? meshes = null;
             if (world.GeometryList.Count > 0)
             {

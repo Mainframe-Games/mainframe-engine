@@ -50,6 +50,17 @@ public class LightProbeRenderTests
     }
 
     [Fact]
+    public void TheIndirectLightViewDropsTheSunAndKeepsTheBounce()
+    {
+        // G8e.1 (ADR 0275): the sunlit scene through RenderDebugView.IndirectLight shades like the no-sun run (the shed's
+        // ratio matches the bake's prediction) and keeps the red wall's baked bounce.
+        var result = HostRunner.Run("probes", Output("probes-indirect"), "--capture", "10", "--count", "5", "--hidden");
+        Gates.AssertValidationClean(result);
+        AssertSelfChecks(result);
+        Gates.AssertMatchesGolden(result, 10, goldenFile: "probes-indirect_frame0010.png");
+    }
+
+    [Fact]
     public void ProbesWithSsaoContactShadowsAndFogAllocateNothingPerFrame()
     {
         const int warmup = 60, measured = 240;

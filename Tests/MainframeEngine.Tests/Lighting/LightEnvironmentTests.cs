@@ -39,6 +39,28 @@ public class LightEnvironmentTests
     }
 
     [Fact]
+    public void WithoutDirectLightsOnlyTheAmbientHeaderIsWritten()
+    {
+        // G8e.1 (ADR 0275): RenderDebugView.IndirectLight writes no lights: counts 0 and every slot zeroed, the header kept.
+        var env = new LightEnvironment { AmbientColor = new Vector3(0.5f, 0.4f, 0.3f) };
+        env.AddLight(new DirectionalLight { Intensity = 2f });
+        env.AddLight(new PointLight { Position = new Vector3(1f, 2f, 3f), Range = 5f });
+        env.AddLight(new SpotLight { Position = new Vector3(0f, 4f, 0f), Range = 8f });
+        var camera = new Vector3(1f, 2f, 3f);
+        var full = new byte[LightEnvironment.UboSize];
+        var indirect = new byte[LightEnvironment.UboSize];
+        env.WriteUbo(full, camera, shadows: true);
+        env.WriteUbo(indirect, camera, shadows: true, directLights: false);
+
+        var f = MemoryMarshal.Cast<byte, int>(full);
+        var i = MemoryMarshal.Cast<byte, int>(indirect);
+        Assert.Equal([1, 1, 1], f[8..11].ToArray());
+        Assert.Equal([0, 0, 0, 0], i[8..12].ToArray());
+        Assert.Equal(full.AsSpan(0, 8 * sizeof(float)).ToArray(), indirect.AsSpan(0, 8 * sizeof(float)).ToArray()); // ambient + camera
+        Assert.All(indirect[(HeaderFloats * sizeof(float))..], b => Assert.Equal(0, b));
+    }
+
+    [Fact]
     public void AddLightRoutesByType()
     {
         var env = new LightEnvironment();

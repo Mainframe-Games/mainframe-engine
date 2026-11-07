@@ -158,6 +158,12 @@ public sealed class EditorCommands
                 _workspace.Viewport.PostPreview = !_workspace.Viewport.PostPreview;
                 _workspace.Toolbar.Refresh();
                 return true;
+            case "view.debug.indirect": ToggleDebugView(RenderDebugView.IndirectLight); return true;
+            case "view.debug.ao": ToggleDebugView(RenderDebugView.AmbientOcclusion); return true;
+            case "view.debug.velocity": ToggleDebugView(RenderDebugView.Velocity); return true;
+            case "view.probes":
+                _workspace.Viewport.ProbesVisible = !_workspace.Viewport.ProbesVisible;
+                return true;
             case "view.navigation":
                 _workspace.Viewport.NavigationVisible = !_workspace.Viewport.NavigationVisible;
                 _workspace.Toolbar.Refresh();
@@ -1282,6 +1288,17 @@ public sealed class EditorCommands
                 new MenuItem(_workspace.Viewport.GridVisible ? "Hide Grid" : "Show Grid", "view.grid", "G", Icon: "grid-3x3"),
                 new MenuItem(_workspace.Viewport.PostPreview ? "Hide Post-Processing" : "Preview Post-Processing", "view.post", null, Icon: "sparkles"),
                 new MenuItem(_workspace.Viewport.NavigationVisible ? "Hide Navigation" : "Visible Navigation", "view.navigation", null, Icon: "route"),
+                new MenuItem(_workspace.Viewport.ProbesVisible ? "Hide Light Probes" : "Show Light Probes", "view.probes", null, scene is not null, Icon: "bulb")
+                {
+                    Tooltip = "Draw the baked probes of every LightProbeVolume near the camera: brightness = sky visibility, tint = bounce light",
+                },
+                MenuItem.Separator,
+                DebugViewItem("Indirect Light Only", "view.debug.indirect", RenderDebugView.IndirectLight, "sun-low",
+                    "Debug view: the scene without its lights — only the sky, the light probes' occlusion and bounce, and the AO", scene),
+                DebugViewItem("Ambient Occlusion", "view.debug.ao", RenderDebugView.AmbientOcclusion, "contrast",
+                    "Debug view: the screen-space ambient occlusion as grey (needs Preview Post-Processing)", scene),
+                DebugViewItem("Motion Vectors", "view.debug.velocity", RenderDebugView.Velocity, "arrows-move",
+                    "Debug view: the depth prepass's motion vectors (needs Preview Post-Processing)", scene),
                 MenuItem.Separator,
                 new MenuItem("Switch to Music Mode", "editor.mode.music", Icon: "music"),
                 new MenuItem("Switch to Video Mode", "editor.mode.video", Icon: "video"),
@@ -1573,4 +1590,15 @@ public sealed class EditorCommands
                 OsShell.OpenUrl(EditorBrand.RepositoryUrl);
         },
     });
+
+    // G8e.1 (ADR 0275): one debug view at a time; choosing the active one again turns it off.
+    private void ToggleDebugView(RenderDebugView view) =>
+        _workspace.Viewport.DebugView = _workspace.Viewport.DebugView == view ? RenderDebugView.None : view;
+
+    private MenuItem DebugViewItem(string label, string command, RenderDebugView view, string icon, string tooltip, EditedScene? scene) =>
+        new(label, command, null, scene is not null, Icon: _workspace.Viewport.DebugView == view ? "check" : icon)
+        {
+            Tooltip = _workspace.Viewport.DebugView == view ? $"{tooltip} — on (click to turn it off)" : tooltip,
+        };
+
 }

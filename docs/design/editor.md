@@ -433,6 +433,12 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
   `NavigationServer2D.DebugDrawEnabled`, draws the edited scenes' navigation grids (outline, cells, solid and dashed
   weighted cells) and agent paths and targets. A selected `NavigationAgent2D` draws its `TargetDesiredDistance` and
   `PathDesiredDistance` circles around its body and a line to its target ([Navigation → Editor](navigation.md#editor)).
+- **Debug views** (View menu; G8e.1, ADR 0275): **Indirect Light Only** (`view.debug.indirect`, `sun-low`: the scene
+  without its lights, only the sky, the light probes and the AO), **Ambient Occlusion** (`view.debug.ao`) and **Motion
+  Vectors** (`view.debug.velocity`), one at a time (the active one shows a `check` and turns off when chosen again):
+  `ViewportController.DebugView` → the scene's `SubViewport.DebugView`; the last two need Preview Post-Processing.
+  **Show Light Probes** (`view.probes`, `bulb`): `LightProbeOverlay` draws the baked probes near the camera as crosses,
+  brightness = sky visibility, tint = bounce ([Lighting → Debugging the probes](lighting.md#debugging-the-probes)).
 - **Preview Post-Processing** (toolbar `sparkles` button and View menu, `view.post`; on by default; ADR 0169): the 3D view
   runs the edited world's post-processing (`SubViewport.PostProcessing`): its `WorldEnvironment`'s profile and lens with
   the open project's `rendering.antiAliasing`, `taaSharpness` and `exposure`, as the game shows them (TAA, SSAO, auto

@@ -474,7 +474,11 @@ M5, two runs each): `Average` 0.13 ms, `Histogram` 0.15–0.16 ms. No debug view
 `RenderServer.DebugView = RenderDebugView.Velocity` replaces the final image with the motion vectors (it turns the
 prepass on): red = 128/255 + velocity.x × 16, green the same for y, blue 128/255, written as display values so a capture
 decodes exactly (`VelocityDebugView.Decode`); still is 128 grey. `RenderDebugView.AmbientOcclusion` shows the SSAO image
-(red as grey) on frames SSAO drew. `MAINFRAME_DEBUG_VIEW=velocity|ao` sets the view at start-up.
+(red as grey) on frames SSAO drew. `RenderDebugView.IndirectLight` (ADR 0275) is not a post effect: the view's lights UBO
+is written without lights, so it shows the ambient term alone ([Lighting → Debugging the
+probes](lighting.md#debugging-the-probes)). `MAINFRAME_DEBUG_VIEW=velocity|ao|indirect` sets the view at start-up.
+A `SubViewport` has its own (`SubViewport.DebugView`, runtime only; the editor's View menu sets it on the scene's view):
+velocity and AO need the view's `PostProcessing`.
 
 ## Settings
 
