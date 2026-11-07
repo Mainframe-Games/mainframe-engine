@@ -9,6 +9,7 @@
 [[vk::binding(1, 0)]] Sampler2D glowLevels[7];
 [[vk::binding(2, 0)]] Sampler2D adaptedLuminance; // ADR 0154: 1 × 1 R32F, AutoExposureAdapt
 [[vk::binding(3, 0)]] Sampler2D lightShafts;      // ADR 0160: half resolution, bilinear; read when shafts > 0
+[[vk::binding(0, 1)]] Sampler2D glowMap;          // ADR 0277: Godot's glow_map (lens dirt); 1 × 1 white without one
 
 struct Post
 {
@@ -24,6 +25,7 @@ struct Post
     uint  autoExposure;    // 1: multiply by autoExposureScale / the adapted luminance (ADR 0154)
     float autoExposureScale;
     float shafts;          // ADR 0160: intensity × fade, 0 when no shafts were drawn
+    float glowMapStrength; // ADR 0277: Godot's glow_map_strength, 0 without a map
 };
 
 [[vk::push_constant]] ConstantBuffer<Post> pc;
@@ -155,6 +157,9 @@ float3 gatherGlow(float2 uv)
     if (pc.glowWeights[4] > 0.0001) glow += bicubic(glowLevels[4], uv) * pc.glowWeights[4];
     if (pc.glowWeights[5] > 0.0001) glow += bicubic(glowLevels[5], uv) * pc.glowWeights[5];
     if (pc.glowWeights[6] > 0.0001) glow += bicubic(glowLevels[6], uv) * pc.glowWeights[6];
+    // Godot: glow = mix(glow, glow_map(uv).rgb * glow, glow_map_strength).
+    if (pc.glowMapStrength > 0.0)
+        glow = lerp(glow, glow * glowMap.SampleLevel(uv, 0.0).rgb, pc.glowMapStrength);
     return glow;
 }
 

@@ -100,6 +100,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
     private PipelineLayout _postLayout;
     private Pipeline _postPipeline;
     private DescriptorSet _postShaftsSet; // _postSet with binding 3 = the shafts (_postSet binds a placeholder there)
+    private GlowMapSets? _postGlowMap; // set 1: the glow map ring (ADR 0277)
 
     // The AfterTonemap stage (ADR 0154 FXAA, ADR 0163): the tonemap pipelines above draw into the swapchain; these into
     // the LDR ping-pong the stage's effects read, the last of which draws into the swapchain.
@@ -700,7 +701,8 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
             [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 2 * (3 + GlowEffect.LevelCount) }], "post tonemap");
         _postSet = PipelineBuilder.AllocateSet(this, _postPool, _postSetLayout, "post tonemap");
         WritePostSet();
-        _postLayout = PipelineBuilder.CreateLayout(this, [_postSetLayout], (uint)sizeof(PostPush), ShaderStageFlags.FragmentBit, "post tonemap");
+        _postGlowMap = new GlowMapSets(this, "post tonemap");
+        _postLayout = PipelineBuilder.CreateLayout(this, [_postSetLayout, _postGlowMap.Layout], (uint)sizeof(PostPush), ShaderStageFlags.FragmentBit, "post tonemap");
         _postPipeline = PipelineBuilder.Create(this, new PipelineState(), _postLayout, _presentPass,
             "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/TonemapPost.vk.frag.spv", [], [], "post tonemap");
     }
@@ -788,6 +790,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         public uint AutoExposure;
         public float AutoExposureScale;
         public float Shafts;
+        public float GlowMapStrength;
     }
 
     private struct TonemapPush
@@ -908,8 +911,11 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         if (usePost)
         {
             vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, afterTonemap ? _postLdrPipeline : _postPipeline);
-            var postSet = shafts > 0f ? _postShaftsSet : _postSet;
-            vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _postLayout, 0, 1, &postSet, 0, null);
+            var glowMapStrength = post.GlowMaxLevel >= 0 ? Math.Clamp(post.GlowMapStrength, 0f, 1f) : 0f;
+            var postSets = stackalloc DescriptorSet[2];
+            postSets[0] = shafts > 0f ? _postShaftsSet : _postSet;
+            postSets[1] = _postGlowMap!.For(_frameNumber, post.GlowMap, ref glowMapStrength);
+            vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _postLayout, 0, 2, postSets, 0, null);
             var postPush = new PostPush
             {
                 Exposure = exposure,
@@ -923,6 +929,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
                 AutoExposure = post.AutoExposureEnabled ? 1u : 0u,
                 AutoExposureScale = post.AutoExposureScale,
                 Shafts = shafts,
+                GlowMapStrength = glowMapStrength,
             };
             post.GetGlowWeights(new Span<float>(postPush.GlowWeights, GlowEffect.LevelCount));
             if (post.GlowQuality == GlowQuality.High)
@@ -1112,6 +1119,8 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
             vk.DestroyPipelineLayout(_device, _postLayout, null);
             vk.DestroyDescriptorPool(_device, _postPool, null);
             vk.DestroyDescriptorSetLayout(_device, _postSetLayout, null);
+            _postGlowMap?.Dispose();
+            _postGlowMap = null;
             _postPipeline = default;
             _postShaftsSet = default;
         }

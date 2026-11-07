@@ -488,7 +488,7 @@ ignores the SSAO settings (`PostProcessSettings.WithoutSsao`): SSAO alone does n
 
 `PostProcessProfile` ([ADR 0169](../../memory/decisions/0169-post-processing-profile-and-editor-preview.md)) is a
 `Resource` with Godot's property names in export groups: **Tonemap** (`Tonemapper`, `TonemapExposure`, `TonemapWhite`),
-**Auto Exposure**, **Glow** (with `GlowQuality`), **Light Shafts**, **SSAO**, **Adjustments** (brightness, contrast,
+**Auto Exposure**, **Glow** (with `GlowQuality`, `GlowMap` and `GlowMapStrength`: lens dirt, ADR 0277), **Light Shafts**, **SSAO**, **Adjustments** (brightness, contrast,
 saturation, `AdjustmentColorCorrection` LUT and its strength). `WorldEnvironment.PostProcess` references it, from a
 `.mfres` shared by scenes or inline; null is the engine default (its own tonemap, no effects).
 

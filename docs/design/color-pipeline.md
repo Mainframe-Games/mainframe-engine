@@ -166,7 +166,8 @@ target will be another.
   the air behind them (they write no depth); the sky ambient it scatters is not occluded under the canopy until G8e.1's
   probes; no quality setting yet (always ½ res × 24 steps).
 - Depth of field has one layer: a near-field blur over a high-frequency background shows half-resolution sparkle along
-  its silhouette (separate near/far layers and TAA would fix it; ADR 0168). No lens dirt (`GlowMap`) yet.
+  its silhouette (separate near/far layers and TAA would fix it; ADR 0168). The glow map is stretched over the screen
+  (no aspect-preserving fit), as Godot's is.
 
 ## Godot tonemap and glow (ADR 0124)
 
@@ -375,6 +376,14 @@ auto exposure, the HDR threshold and the cap as Godot's level 0; × `GlowStrengt
 `level[k] = tent3×3(level[k+1]) + weight_k · temp[k]` (tent taps `GlowEffect.UpsampleRadius` = 2 lower-level texels apart,
 normalised: energy conserving). The tonemap composites `level[0]` alone (`GlowEffect.CombinedWeights`), with the blend
 mode and intensity as before.
+
+**Glow map (lens dirt).** G8e.4, [ADR 0277](../../memory/decisions/0277-glow-map-lens-dirt.md): `GlowMap` (a `Texture2D`,
+sRGB, stretched over the screen) and `GlowMapStrength` (0.8), Godot's `glow_map` and `glow_map_strength`: the gathered
+glow becomes `lerp(glow, glow × map(uv), strength)` before it is blended, in both quality modes and every blend mode, so
+dirt on the lens lights up only where bright light blooms. The map is the post tonemap's set 1 (`GlowMapSets`: a ring of
+`MaxFramesInFlight + 1` sets, one per frame, a changed map written into a slot no frame in flight binds; a 1 × 1 white
+texture and strength 0 without one), in the main view and in post-processed sub-viewports; `glowMapStrength` ends the
+push block (76 bytes). Render test `glow-map` (a black-and-white map masks the glow beside the emitter on its black half).
 
 **Lens: `CameraAttributesPractical`** on `WorldEnvironment.CameraAttributes` or `Camera3D.Attributes` (the root view's
 current camera's replaces the environment's, as a whole). Depth of field with Godot's names and defaults
