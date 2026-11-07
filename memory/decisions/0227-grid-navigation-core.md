@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-28
 - **Status:** accepted
-- **Docs:** docs/design/navigation.md (from the proposal docs/design/future/navigation.md, G3.1–G3.2)
+- **Docs:** docs/design/navigation.md (from the G3 proposal, since moved into it; G3.1–G3.2)
 
 ## Context
 

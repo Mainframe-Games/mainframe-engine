@@ -1,7 +1,7 @@
 # Plan: G3.9 2D navigation meshes (polygons, regions, funnel, links, bake)
 
 **Status:** done, see [log](../logs/2026-11-07-navigation-polygons.md)
-**Docs:** [Navigation proposal, later phases](../../docs/design/future/navigation.md) (§ Later phases: 2D navmesh polygons,
+**Docs:** [Navigation proposal, later phases](../../docs/design/navigation.md#changes-from-the-proposal) (§ Later phases: 2D navmesh polygons,
 task 4, open question 2), [Navigation](../../docs/design/navigation.md) (the shipped grids, server, agents, avoidance),
 [ADR 0227](../decisions/0227-grid-navigation-core.md), [ADR 0228](../decisions/0228-navigation-server-agents-and-sources.md),
 [ADR 0203](../decisions/0203-bitmask-and-geometry2d-on-clipper2.md) (Clipper2)

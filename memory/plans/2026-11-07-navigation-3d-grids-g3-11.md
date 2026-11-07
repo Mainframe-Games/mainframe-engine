@@ -1,7 +1,7 @@
 # Plan: G3.11 3D grids and NavigationAgent3D
 
 **Status:** done, see [log](../logs/2026-11-07-navigation-3d-grids.md)
-**Docs:** [Navigation proposal, later phases](../../docs/design/future/navigation.md) (§ Later phases: 3D, task 6),
+**Docs:** [Navigation proposal, later phases](../../docs/design/navigation.md#changes-from-the-proposal) (§ Later phases: 3D, task 6),
 [Navigation](../../docs/design/navigation.md) (the 2D server, maps, grids and agents)
 **Started:** 2026-11-07
 

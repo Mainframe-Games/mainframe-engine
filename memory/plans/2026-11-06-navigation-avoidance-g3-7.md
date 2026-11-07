@@ -1,7 +1,7 @@
 # Plan: G3.7 local avoidance for 2D navigation agents
 
 **Status:** done, see [log](../logs/2026-11-06-navigation-avoidance.md)
-**Docs:** [Navigation proposal, later phases](../../docs/design/future/navigation.md) (§ Avoidance (G3.7), Testing, task 2,
+**Docs:** [Navigation proposal, later phases](../../docs/design/navigation.md#changes-from-the-proposal) (§ Avoidance (G3.7), Testing, task 2,
 open question 3), [Navigation](../../docs/design/navigation.md) (what G3a shipped),
 [ADR 0227](../decisions/0227-grid-navigation-core.md), [ADR 0228](../decisions/0228-navigation-server-agents-and-sources.md)
 **Started:** 2026-11-06

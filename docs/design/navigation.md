@@ -4,9 +4,12 @@
 [ADR 0228](../../memory/decisions/0228-navigation-server-agents-and-sources.md)), including the tile map source (G3.6),
 local avoidance (G3.7, [ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md)) and 2D navigation meshes
 (G3.9, [ADR 0261](../../memory/decisions/0261-navigation-meshes-2d.md)) and async queries (G3.10,
-[ADR 0262](../../memory/decisions/0262-navigation-async-queries.md), [ADR 0263](../../memory/decisions/0263-navigation-3d-grids.md)) and 3D grids with `NavigationAgent3D` (G3.11,
-[ADR 0263](../../memory/decisions/0263-navigation-3d-grids.md)). G3.8 (grid polish) closed as not needed (the owner
-agreed): its conditions did not arise. 3D navigation meshes (G3.12) are still a [proposal](future/navigation.md).
+[ADR 0262](../../memory/decisions/0262-navigation-async-queries.md), [ADR 0263](../../memory/decisions/0263-navigation-3d-grids.md),
+[ADR 0264](../../memory/decisions/0264-navigation-meshes-3d-dotrecast.md)) and 3D grids with `NavigationAgent3D` (G3.11,
+[ADR 0263](../../memory/decisions/0263-navigation-3d-grids.md)) and 3D navigation meshes baked with Recast (G3.12,
+[ADR 0264](../../memory/decisions/0264-navigation-meshes-3d-dotrecast.md)). G3.8 (grid polish) closed as not needed (the
+owner agreed): its conditions did not arise. Every phase of the G3 proposal has shipped; its last open question is under
+[Open questions](#open-questions).
 
 Godot 4's navigation API on grids: `AStarGrid2D` and the point graphs `AStar2D`/`AStar3D` (plain classes, usable without
 a tree), a `NavigationServer2D` with one map per `World2D`, the `NavigationGrid2D` region baked from static bodies or read
@@ -27,6 +30,8 @@ rotation, baked from the collision shapes. Queries and avoidance allocate nothin
 | `NavigationPath2D`, `NavigationPathQuery2D` | `NavigationPath2D.cs`, `NavigationTypes.cs` | A reusable query result; the query |
 | `NavigationServer3D`, `NavigationMap3D`, `NavigationPath3D`, `NavigationPathQuery3D` | `NavigationServer3D.cs`, `NavigationMap3D.cs`, `NavigationPath3D.cs` | G3.11: the 3D server, one map per `World3D`, the path and query |
 | `NavigationGrid3D`, `NavigationAgent3D` | `Nodes3D/` | G3.11: a grid on the XZ plane at a height; path following in 3D |
+| `NavigationMesh`, `NavigationRegion3D`, `NavigationMeshPartition` | `Meshes3D/NavigationMesh.cs`, `Nodes3D/NavigationRegion3D.cs` | G3.12: a 3D navigation mesh resource (Recast settings, the baked polygons and Detour tile); its region node |
+| `RecastBaker`, `DetourMesh3D` | `Meshes3D/` | G3.12 (internal): the bake (scene parse, DotRecast build) and a region's runtime Detour mesh and queries — the only DotRecast callers |
 | `GridPhysicsBaker3D`, `NavigationDebugDraw3D` | `Baking/`, `NavigationDebugDraw3D.cs` | G3.11: the 3D grid's bake through physics queries; the 3D debug draw |
 | `NavigationPathRequest`, `NavigationQueryWorkers`, `NavigationPathMode` | `NavigationQueryWorkers.cs`, `NavigationTypes.cs` | G3.10: an async query's handle; the server's workers; an agent's path mode |
 | `NavigationGrid2D`, `NavigationGridData` | `Nodes2D/` | The grid region node and its baked data resource |
@@ -410,6 +415,45 @@ var to = agent.GetNextPathPosition() - GlobalPosition;  // level: the offset is 
 - **Debug draw** (Visible Navigation, the dev overlay's checkbox): each grid's outline on its plane, solid cells (outline
   and cross) and weighted cells 2 cm above it, each agent's path, next position and target ring.
 
+## 3D navigation meshes (G3.12)
+
+Godot's 3D navigation meshes, baked with Recast and queried with Detour through DotRecast, the C# port (zlib; the owner's
+choice: [ADR 0264](../../memory/decisions/0264-navigation-meshes-3d-dotrecast.md)). For uneven ground a grid cannot
+describe: ramps, stairs, terraces, terrain.
+
+```csharp
+var region = new NavigationRegion3D { NavigationMesh = new NavigationMesh { AgentRadius = 0.35f, CellSize = 0.15f } };
+level.AddChild(region);   // floors, ramps, walls (StaticBody3D / MeshInstance3D) go under it
+region.Bake();            // or the inspector's Bake; saved inline or as a .mfres
+```
+
+- **`NavigationMesh`** (a `Resource`): the bake settings with Godot's names and defaults — `CellSize`/`CellHeight` 0.25,
+  `AgentHeight` 1.5, `AgentRadius` 0.5, `AgentMaxClimb` 0.25, `AgentMaxSlope` 45°, `SamplePartitionType`
+  (`Watershed`, `Monotone`, `Layers`), `RegionMinSize` 2, `RegionMergeSize` 20, `EdgeMaxLength` 0, `EdgeMaxError` 1.3,
+  `VerticesPerPolygon` 6, `DetailSampleDistance` 6, `DetailSampleMaxError` 1, `ParsedGeometryType`, `CollisionMask`,
+  `SourceGeometryMode` + `SourceGroupName`, the three `Filter…` switches and `FilterBakingAabb` — and the result:
+  `Vertices`/`Polygons` (region-local, for tools and the debug draw) and `DetourData` (`dtmd1:` + base64 of the Detour
+  tile queries load). `IsBaked`, `Clear`, `SetBaked`, `Version`.
+- **Bake** (`NavigationRegion3D.Bake`/`BakeData`, `RecastBaker`): the region's descendants (or a group) as one triangle
+  soup in its local space — `MeshInstance3D` surfaces and `StaticBody3D` collision shapes (boxes; spheres, capsules and
+  cylinders as 16-sided rings; convex hulls; concave faces; height maps) — then Recast's voxelise, walkable filters,
+  regions, contours, polygons and detail mesh, and Detour's tile. Recast rasterises surfaces only, so the air inside a
+  closed shape would read as floor: each solid primitive also marks its footprint unwalkable from its bottom to just
+  below its lowest top (a pillar's top and a ramp stay walkable). The same scene bakes to the same bytes. The default
+  source mode bakes without a tree (scenes built in code). Main thread; tens of milliseconds for a Demo-sized level.
+- **`NavigationRegion3D`** (a `Node3D`): `NavigationMesh`, `Enabled`, `NavigationLayers`; placed by its full global
+  transform (queries go to its local space and back); `BakeFinished`, `NavigationMeshChanged`, `LastBakeMilliseconds`.
+  The map loads its tile into a `DtNavMesh` at the next sync after a change, and re-places it after a move.
+- **Queries.** A 3D grid containing the start answers first; otherwise the enabled navmesh region (on the query's
+  layers) whose surface is nearest the start does, within a search box of two agent radii across and an agent height up
+  and down. Paths stay in that region (regions are not joined yet). Detour's `FindPath` and `FindStraightPath`:
+  `CorridorFunnel` is the straight path; `EdgeCentered` and `None` add every polygon-edge crossing. A target off the mesh,
+  out of reach or on another island gives `Partial` (the closest point), or `NotFound` without partial paths.
+  `GetClosestPoint` includes the meshes. 0 bytes per query (DotRecast's span overloads into reused buffers).
+- **Agents.** `NavigationAgent3D` follows navmesh paths unchanged; set `PathHeightOffset` to the body's height above
+  its feet, so a capsule climbs ramps and stairs level.
+- **Debug draw** (Visible Navigation): each baked region's polygon edges just above them (faded while disabled).
+
 ## Editor
 
 - **Visible Navigation** (toolbar view group, icon `route`, View menu): the editor tree's server draws every edited
@@ -421,6 +465,8 @@ var to = agent.GetNextPathPosition() - GlobalPosition;  // level: the offset is 
   around its body, its avoidance `Radius` when avoiding, and a line and circle at its target, in the overlay.
 - **Obstacle gizmo:** the selected `NavigationObstacle2D` draws its radius circle and polygon (a dot on each vertex) in
   the selection colour; Visible Navigation draws every obstacle. `Vertices` are edited in the inspector (no handles yet).
+- **`NavigationRegion3DInspector`** (G3.12): Bake (Recast) and Clear, each one undoable change of the mesh's vertices,
+  polygons and Detour data, and a status line (polygons, vertices, the last bake's time).
 - **`NavigationGrid3DInspector`** (G3.11): Bake/Clear with undo and the status line, as for 2D grids; Visible Navigation
   switches the 3D server's debug draw too.
 - **`NavigationRegionInspector`** (G3.9): **Bake** (`wand`) and **Clear** (`trash`), each one undoable change of the
@@ -477,11 +523,17 @@ and `Navigation debug draw`, plus the server's own
   closest points, edits and moves at the sync, a `CharacterBody3D` walking round a wall with its signals, repaths on a
   blocked cell, the debug draw, and the allocation gate's 3D case: **0 bytes** over 300 ticks of 64 agents with cell
   edits every 30 ticks and the debug draw on).
+- G3.12: `NavigationMesh3DTests` (obstacles carved by the radius and the inside of solids, a ramp onto a platform and the
+  island without it, funnel and edge-crossing paths, mesh and collision sources, moved and disabled regions,
+  deterministic bakes and clearing, corrupt tiles, a `CharacterBody3D` walking up the ramp onto the platform, and the
+  allocation gate's case: **0 bytes** over 300 ticks of 64 agents with a region move every 60 ticks and the debug draw
+  on); `NavigationPolygonResourceTests` (a baked `NavigationMesh` as `.mfres` loads and answers the same path).
 - Editor (`NavigationEditorTests`): the toggle, Bake/Clear with undo and staleness, source rows, the agent gizmo, the
-  obstacle gizmo and the avoidance radius; the region inspector's Bake/Clear with undo, the region and link gizmos; the 3D grid's Bake/Clear and the 3D debug draw toggle.
+  obstacle gizmo and the avoidance radius; the region inspector's Bake/Clear with undo, the region and link gizmos; the 3D grid's Bake/Clear and the 3D debug draw toggle; the 3D region's Bake/Clear with undo.
 - Render test `navigation` (`NavigationRenderTests`): grid, solid cells, mud, paths and targets over the collision
   shapes through a `Camera2D` (golden).
-- Demo: `Navigation3DSceneTests` (G3.11: the saved grid equals a bake, every capsule arrives and stays on the floor,
+- Demo: `NavigationMesh3DSceneTests` (G3.12: the saved mesh equals a bake, capsules climb the ramp onto the terrace and
+  the stairs onto the deck, the panel); `Navigation3DSceneTests` (G3.11: the saved grid equals a bake, every capsule arrives and stays on the floor,
   a second target behind a wall, the panel); `Navigation2DSceneTests.WithAsyncPathsEveryChaserStillArrives` (G3.10); `NavigationMesh2DSceneTests` (the saved polygons equal a bake, every chaser ferries across and arrives without
   wading the river, the pond carved or not, the panel); `Navigation2DSceneTests` (the saved grid equals a real bake, every chaser reaches the target, avoiding chasers
   keep apart and off the boulder, clicked walls reroute, the panel); `Tiles2DSceneTests` (the tile-sourced grid matches the walls layer, the shadow reaches the hero
@@ -539,14 +591,26 @@ and `Navigation debug draw`, plus the server's own
   band, Godot's agent defaults), `NavigationGrid3D.Height`, the 3D inspector. Not built yet: 3D avoidance, async 3D
   agents, an agent gizmo in the 3D view. `NavigationAgent3D.PathHeightOffset` adds the offset back to returned positions
   (Godot documents it only as subtracted).
+- **G3.12 3D navigation meshes:** baking and queries are DotRecast (the owner's answer to open question 1; AOT, trimming
+  and per-query allocation checked first: no IL2xxx/IL3xxx warnings in a NativeAOT publish, 0 bytes per query). Each
+  region keeps its own Detour tile, and paths stay in one region: regions are not joined by shared edges in 3D yet, and
+  there is no `NavigationLink3D` or 3D avoidance. Added beyond the proposal: the solid-interior marking (Recast's closed
+  mesh artefact), `NavigationMesh.DetourData` beside Godot's `Vertices`/`Polygons`, `IsBaked`, `SetBaked`, bakes of
+  scenes outside the tree. Not built: baking on a thread, tiled meshes for large worlds.
 - **G3.8 grid polish** closed without code: its three items were conditional — isometric cells if tile maps need them
   (tile maps are square only), HPA* if a game needs it (none does), cell painting if tile maps do not cover it (G3.6's
   live tile source does).
 - The Demo scene is in the nav bar's 2D category; number keys open categories, not scenes ([Demo](demo.md#navigation)).
 
+## Open questions
+
+1. **Tile map dirty rects** (from the proposal). G3.6 re-reads the used cells on the plain `Changed` signal (0 B once
+   warm). Should tile maps add `CellsChanged(Rect2I)` once a game digs or builds every frame and the full re-read shows
+   in the profiler?
+
 ## Related
 
 [Physics](physics.md) (queries), [Canvas](canvas.md), [Editor](editor.md), [Dev overlay](dev-overlay.md),
-[Demo](demo.md), [Tile maps](tile-maps.md), [Proposal: later phases](future/navigation.md),
+[Demo](demo.md), [Tile maps](tile-maps.md),
 [ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md), [ADR 0261](../../memory/decisions/0261-navigation-meshes-2d.md),
 [ADR 0262](../../memory/decisions/0262-navigation-async-queries.md)

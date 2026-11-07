@@ -8,7 +8,7 @@ summary: >-
 # 2026-11-07: 2D navigation meshes (G3.9)
 
 Branch `feature/navigation-polygons`. Plan: [G3.9 2D navigation meshes](../plans/2026-11-07-navigation-polygons-g3-9.md).
-Proposal: [Navigation, later phases](../../docs/design/future/navigation.md); as built:
+Proposal: [Navigation, later phases](../../docs/design/navigation.md#changes-from-the-proposal); as built:
 [Navigation → Navigation meshes](../../docs/design/navigation.md#navigation-meshes-g39).
 
 ## What changed

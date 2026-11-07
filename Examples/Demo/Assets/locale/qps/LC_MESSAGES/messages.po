@@ -210,6 +210,12 @@ msgstr "[Vîsîblé ñåvîgåtîöñ ~~~~~]"
 msgid "Arrived"
 msgstr "[Årrîvéð ~~]"
 
+msgid "Navigation Mesh 3D"
+msgstr "[Ñåvîgåtîöñ Mésh 3Ð ~~~~]"
+
+msgid "A navigation mesh baked with Recast over uneven ground: capsules walk to the clicked surface, up the ramp and the stairs."
+msgstr "[Å ñåvîgåtîöñ mésh båkéð wîth Réçåst övér ûñévéñ gröûñð: çåpsûlés wålk tö thé çlîçkéð sûrfåçé, ûp thé råmp åñð thé ståîrs. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
 msgid "Navigation Mesh 2D"
 msgstr "[Ñåvîgåtîöñ Mésh 2Ð ~~~~]"
 
