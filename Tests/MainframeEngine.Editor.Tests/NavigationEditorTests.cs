@@ -255,4 +255,43 @@ public sealed class NavigationEditorTests : IDisposable
         link.Bidirectional = false;
         Assert.Equal(bidirectional - 2, Lines(link));
     }
+
+    [Fact]
+    public void Grid3DBakeAndClearAreUndoableAndVisibleNavigationReachesThe3DServer()
+    {
+        var floor = new StaticBody3D { Name = "Floor", Position = new Vector3(5, -0.5f, 5) };
+        _editor.Scene.AddNode(floor, _editor.Scene.Root);
+        _editor.Scene.AddNode(new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(12, 1, 12) } }, floor);
+        var wall = new StaticBody3D { Name = "Wall", Position = new Vector3(4.5f, 1, 4.5f) };
+        _editor.Scene.AddNode(wall, _editor.Scene.Root);
+        _editor.Scene.AddNode(new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(1, 2, 3) } }, wall);
+        var grid = new NavigationGrid3D { Name = "Nav3D", Region = new Rect2I(0, 0, 10, 10) };
+        _editor.Scene.AddNode(grid, _editor.Scene.Root);
+        _editor.Tick(2);
+        Assert.IsType<NavigationGrid3DInspector>(CustomInspectors.Find(typeof(NavigationGrid3D)));
+        Assert.Contains("not baked", NavigationGrid3DInspector.Status(grid), StringComparison.Ordinal);
+
+        _editor.Scene.Selection.Set(grid);
+        _editor.Tick();
+        W.Inspector.RunHeaderAction(NavigationGrid3DInspector.BakeAction);
+        _editor.Tick(2);
+        Assert.Equal(3, grid.Data!.SolidCount);
+        Assert.Contains("3 solid", NavigationGrid3DInspector.Status(grid), StringComparison.Ordinal);
+        W.Inspector.RunHeaderAction(NavigationGrid3DInspector.ClearAction);
+        _editor.Tick(2);
+        Assert.Null(grid.Data);
+        _editor.Scene.History.Undo();
+        _editor.Tick(2);
+        Assert.Equal(3, grid.Data!.SolidCount);
+
+        var server = W.Tree!.Servers.Get<NavigationServer3D>();
+        Assert.NotNull(server);
+        Assert.True(server.DebugDrawEnabled);
+        W.Commands.Execute("view.navigation");
+        _editor.Tick(2);
+        Assert.False(server.DebugDrawEnabled);
+        W.Commands.Execute("view.navigation");
+        _editor.Tick(2);
+        Assert.True(server.DebugDrawEnabled);
+    }
 }

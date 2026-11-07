@@ -1,11 +1,12 @@
-# Navigation (grid A*, point graphs, navigation meshes, `NavigationServer2D`, agents)
+# Navigation (grid A*, point graphs, navigation meshes, `NavigationServer2D`/`3D`, agents)
 
 **Status:** shipped for 2D grids (Gameplay toolkit G3a, G3.1–G3.6; [ADR 0227](../../memory/decisions/0227-grid-navigation-core.md),
 [ADR 0228](../../memory/decisions/0228-navigation-server-agents-and-sources.md)), including the tile map source (G3.6),
 local avoidance (G3.7, [ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md)) and 2D navigation meshes
 (G3.9, [ADR 0261](../../memory/decisions/0261-navigation-meshes-2d.md)) and async queries (G3.10,
-[ADR 0262](../../memory/decisions/0262-navigation-async-queries.md)). G3.8 (grid polish) closed as not needed (the owner
-agreed): its conditions did not arise. 3D (G3.11–G3.12) is still a [proposal](future/navigation.md).
+[ADR 0262](../../memory/decisions/0262-navigation-async-queries.md), [ADR 0263](../../memory/decisions/0263-navigation-3d-grids.md)) and 3D grids with `NavigationAgent3D` (G3.11,
+[ADR 0263](../../memory/decisions/0263-navigation-3d-grids.md)). G3.8 (grid polish) closed as not needed (the owner
+agreed): its conditions did not arise. 3D navigation meshes (G3.12) are still a [proposal](future/navigation.md).
 
 Godot 4's navigation API on grids: `AStarGrid2D` and the point graphs `AStar2D`/`AStar3D` (plain classes, usable without
 a tree), a `NavigationServer2D` with one map per `World2D`, the `NavigationGrid2D` region baked from static bodies or read
@@ -24,6 +25,9 @@ rotation, baked from the collision shapes. Queries and avoidance allocate nothin
 | `AStar2D`, `AStar3D`, `PointGraph` | `AStar2D.cs`, `AStar3D.cs`, `PointGraph.cs` | Point-graph A* (waypoints) |
 | `NavigationServer2D`, `NavigationMap2D` | `NavigationServer2D.cs`, `NavigationMap2D.cs` | The server, maps, sync, queries, post-processing (`GridLineOfSight`) |
 | `NavigationPath2D`, `NavigationPathQuery2D` | `NavigationPath2D.cs`, `NavigationTypes.cs` | A reusable query result; the query |
+| `NavigationServer3D`, `NavigationMap3D`, `NavigationPath3D`, `NavigationPathQuery3D` | `NavigationServer3D.cs`, `NavigationMap3D.cs`, `NavigationPath3D.cs` | G3.11: the 3D server, one map per `World3D`, the path and query |
+| `NavigationGrid3D`, `NavigationAgent3D` | `Nodes3D/` | G3.11: a grid on the XZ plane at a height; path following in 3D |
+| `GridPhysicsBaker3D`, `NavigationDebugDraw3D` | `Baking/`, `NavigationDebugDraw3D.cs` | G3.11: the 3D grid's bake through physics queries; the 3D debug draw |
 | `NavigationPathRequest`, `NavigationQueryWorkers`, `NavigationPathMode` | `NavigationQueryWorkers.cs`, `NavigationTypes.cs` | G3.10: an async query's handle; the server's workers; an agent's path mode |
 | `NavigationGrid2D`, `NavigationGridData` | `Nodes2D/` | The grid region node and its baked data resource |
 | `NavigationAgent2D` | `Nodes2D/NavigationAgent2D.cs` | Path following; avoidance settings and `VelocityComputed` |
@@ -370,6 +374,42 @@ if (request.IsCompleted && request.Status == GridPathStatus.Found)
   `{ "workers": 2, "asyncAgents": true }`, applied to the server by `GameHost` and `HeadlessHost`
   ([Project and GameHost](project-and-gamehost.md)).
 
+## 3D grids (G3.11)
+
+Godot's 3D navigation for top-down games, tower defence and strategy, on grids
+([ADR 0263](../../memory/decisions/0263-navigation-3d-grids.md)): a `NavigationServer3D` with one `NavigationMap3D` per
+`World3D` (registered after `PhysicsServer3D` by the engine and `HeadlessHost`; the same sync points as the 2D maps), a
+`NavigationGrid3D` region and `NavigationAgent3D`.
+
+```csharp
+var grid = new NavigationGrid3D { Region = new Rect2I(0, 0, 48, 32), CellSize = new Vector2(0.5f), AgentRadius = 0.35f };
+level.AddChild(grid);   // at the floor's height; Bake() in the editor or at run time
+// A CharacterBody3D with a NavigationAgent3D child (PathHeightOffset = the capsule's half height):
+var to = agent.GetNextPathPosition() - GlobalPosition;  // level: the offset is added back
+```
+
+- **`NavigationGrid3D`** (a `Node3D`): an `AStarGrid2D` on the XZ plane at the node's global Y; cell (x, z) covers
+  `GlobalPosition.XZ + (x, z) · CellSize`. The 2D grid's exports (`Region`, `CellSize` — default 1 m — `DiagonalMode`,
+  `Heuristic`, `JumpingEnabled`, `NavigationLayers`, `BakeOnReady`, `Data`: the same `NavigationGridData`) and API
+  (`SetCellSolid`, `SetCellWeight`, `CellAt`, `CellCenter`, `Bake`, `BakeData`, `IsBakeOutOfDate`, `Grid`), plus
+  `Height`. Rotation and scale are ignored (a warning). A move — also up or down — applies at the next sync.
+- **Bake** (`GridPhysicsBaker3D`, through `PhysicsDirectSpaceState3D` only): one overlap box per cell, the cell grown by
+  `AgentRadius` (less 1 mm), from `AgentMaxClimb` (0.25 m) to `AgentHeight` (1.5 m) above the grid — the floor and low
+  steps do not block, and nor does anything overhead — masked by `BakeCollisionMask`; only `StaticBody3D` hits count.
+  `IsBakeOutOfDate` hashes the static bodies in that band.
+- **Queries.** `NavigationMap3D.QueryPath(in NavigationPathQuery3D, NavigationPath3D)` runs the 2D map's grid code on the
+  XZ plane (`NavigationMap2D.QueryGrid`: the same start snapping, partial paths and post-processing) and lifts the
+  points to the grid's height; `NavigationPath3D` has `Points` (`Vector3`), `Cells`, `Owners`, `Status`, `Region`,
+  `MapIteration`. `GetClosestPoint` snaps onto walkable ground. 0 bytes per query.
+- **`NavigationAgent3D`**: the 2D agent's rules and signals in `Vector3` (`TargetPosition`, `PathDesiredDistance` and
+  `TargetDesiredDistance` 1 m, `PathMaxDistance` 5 m, `TargetRepathDistance`, `NavigationLayers`, `PathPostprocessing`,
+  `DebugEnabled`; `PathChanged`, `WaypointReached(NavigationWaypoint3D)`, `TargetReached`, `NavigationFinished`).
+  **`PathHeightOffset`** is the body origin's height above the navigation surface: queries and distances use the origin
+  lowered by it, and `GetNextPathPosition` returns path points raised by it, so a capsule steers level.
+  `SetVelocity` raises `VelocityComputed` at once: 3D avoidance and async paths are not built for 3D yet.
+- **Debug draw** (Visible Navigation, the dev overlay's checkbox): each grid's outline on its plane, solid cells (outline
+  and cross) and weighted cells 2 cm above it, each agent's path, next position and target ring.
+
 ## Editor
 
 - **Visible Navigation** (toolbar view group, icon `route`, View menu): the editor tree's server draws every edited
@@ -381,6 +421,8 @@ if (request.IsCompleted && request.Status == GridPathStatus.Found)
   around its body, its avoidance `Radius` when avoiding, and a line and circle at its target, in the overlay.
 - **Obstacle gizmo:** the selected `NavigationObstacle2D` draws its radius circle and polygon (a dot on each vertex) in
   the selection colour; Visible Navigation draws every obstacle. `Vertices` are edited in the inspector (no handles yet).
+- **`NavigationGrid3DInspector`** (G3.11): Bake/Clear with undo and the status line, as for 2D grids; Visible Navigation
+  switches the 3D server's debug draw too.
 - **`NavigationRegionInspector`** (G3.9): **Bake** (`wand`) and **Clear** (`trash`), each one undoable change of the
   polygon's `Vertices` and `Polygons`, and a status line — polygons, vertices, outlines or baking rect, the last bake's
   time. The selected region draws its outlines (a dot per vertex) and a dashed baking rectangle; outlines are edited in
@@ -431,11 +473,16 @@ and `Navigation debug draw`, plus the server's own
   sync later and arriving, keeping the old path while the map changes, and the allocation gate's async case: **0 bytes**
   over 300 ticks of 64 async agents on a grid and a navmesh with cell edits every 30 ticks); `ProjectSettingsTests` (the
   `navigation` section).
+- G3.11: `Navigation3DTests` (the bake's height band and agent radius, staleness, queries on the plane at a height,
+  closest points, edits and moves at the sync, a `CharacterBody3D` walking round a wall with its signals, repaths on a
+  blocked cell, the debug draw, and the allocation gate's 3D case: **0 bytes** over 300 ticks of 64 agents with cell
+  edits every 30 ticks and the debug draw on).
 - Editor (`NavigationEditorTests`): the toggle, Bake/Clear with undo and staleness, source rows, the agent gizmo, the
-  obstacle gizmo and the avoidance radius; the region inspector's Bake/Clear with undo, the region and link gizmos.
+  obstacle gizmo and the avoidance radius; the region inspector's Bake/Clear with undo, the region and link gizmos; the 3D grid's Bake/Clear and the 3D debug draw toggle.
 - Render test `navigation` (`NavigationRenderTests`): grid, solid cells, mud, paths and targets over the collision
   shapes through a `Camera2D` (golden).
-- Demo: `Navigation2DSceneTests.WithAsyncPathsEveryChaserStillArrives` (G3.10); `NavigationMesh2DSceneTests` (the saved polygons equal a bake, every chaser ferries across and arrives without
+- Demo: `Navigation3DSceneTests` (G3.11: the saved grid equals a bake, every capsule arrives and stays on the floor,
+  a second target behind a wall, the panel); `Navigation2DSceneTests.WithAsyncPathsEveryChaserStillArrives` (G3.10); `NavigationMesh2DSceneTests` (the saved polygons equal a bake, every chaser ferries across and arrives without
   wading the river, the pond carved or not, the panel); `Navigation2DSceneTests` (the saved grid equals a real bake, every chaser reaches the target, avoiding chasers
   keep apart and off the boulder, clicked walls reroute, the panel); `Tiles2DSceneTests` (the tile-sourced grid matches the walls layer, the shadow reaches the hero
   without stepping on stone or water, a wall on its path makes it repath).
@@ -487,6 +534,11 @@ and `Navigation debug draw`, plus the server's own
   path leads elsewhere). The main thread helps run requests at the sync; 0 workers runs them all there. Added:
   `NavigationPathRequest.Cancel`/`WasCancelled`/`IsValid`, `NavigationServer2D.PendingQueries`, the async wait scope.
   Fixed on the way: navmesh paths no longer keep stale `Cells` from an earlier grid query in a reused path.
+- **G3.11 3D grids:** the grid code is the 2D map's, shared (`NavigationMap2D.QueryGrid`, `ClosestOnGrid`), and the
+  data is the same `NavigationGridData`. Added beyond the proposal: `AgentHeight` and `AgentMaxClimb` (the bake's height
+  band, Godot's agent defaults), `NavigationGrid3D.Height`, the 3D inspector. Not built yet: 3D avoidance, async 3D
+  agents, an agent gizmo in the 3D view. `NavigationAgent3D.PathHeightOffset` adds the offset back to returned positions
+  (Godot documents it only as subtracted).
 - **G3.8 grid polish** closed without code: its three items were conditional — isometric cells if tile maps need them
   (tile maps are square only), HPA* if a game needs it (none does), cell painting if tile maps do not cover it (G3.6's
   live tile source does).

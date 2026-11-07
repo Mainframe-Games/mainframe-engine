@@ -3,7 +3,8 @@
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G3) · **Status:** G3a shipped (G3.1–G3.6, see
 [Navigation](../navigation.md)); G3.7 avoidance shipped ([Avoidance](../navigation.md#avoidance-g37)); G3.8 closed (nothing to build); G3.9 navigation
 meshes shipped ([Navigation meshes](../navigation.md#navigation-meshes-g39)); G3.10 async queries shipped
-([Async queries](../navigation.md#async-queries-g310)); G3.11–G3.12 planned ·
+([Async queries](../navigation.md#async-queries-g310)); G3.11 3D grids shipped ([3D grids](../navigation.md#3d-grids-g311));
+G3.12 planned ·
 **Depends on:** [Navigation](../navigation.md) (the shipped core) · **Related:** [Networking](../networking.md),
 [Mobile](mobile.md) (AOT), [Tile maps](../tile-maps.md)
 
@@ -27,11 +28,10 @@ The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (phy
 - ~~**Avoidance (G3.7).**~~ Shipped: [Navigation → Avoidance](../navigation.md#avoidance-g37) (ADR 0250).
 - ~~**2D navmesh polygons (G3.9).**~~ Shipped: [Navigation → Navigation meshes](../navigation.md#navigation-meshes-g39)
   (ADR 0261).
-- **3D (G3.11–G3.12).** `NavigationServer3D` with the same map/region/agent split, `NavigationAgent3D`
-  (`Vector3`, plus `PathHeightOffset`), and first a `NavigationGrid3D`: an `AStarGrid2D` on the XZ plane at a
-  height, baked with `IntersectShape` against 3D static bodies — enough for top-down 3D games, tower defence and RTS.
-  Then `NavigationMesh` + `NavigationRegion3D` with baking from collision shapes and meshes on DotRecast
-  ([Open questions](#open-questions)).
+- ~~**3D grids (G3.11).**~~ Shipped: [Navigation → 3D grids](../navigation.md#3d-grids-g311) (ADR 0263):
+  `NavigationServer3D`, `NavigationGrid3D`, `NavigationAgent3D`.
+- **3D navigation meshes (G3.12).** `NavigationMesh` + `NavigationRegion3D` on the 3D map, with baking from collision
+  shapes and meshes on DotRecast ([Open questions](#open-questions)).
 
 ## Testing
 
@@ -45,7 +45,7 @@ The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (phy
    needs HPA*, the live tile source covers cell painting).
 4. ~~**G3.9 2D navmesh polygons.**~~ shipped: [Navigation → Navigation meshes](../navigation.md#navigation-meshes-g39).
 5. ~~**G3.10 Async queries.**~~ shipped: [Navigation → Async queries](../navigation.md#async-queries-g310).
-6. **G3.11 3D grid.** `NavigationServer3D`, `NavigationGrid3D`, `NavigationAgent3D`; Demo 3D variant.
+6. ~~**G3.11 3D grid.**~~ shipped: [Navigation → 3D grids](../navigation.md#3d-grids-g311).
 7. **G3.12 3D navmesh.** `NavigationMesh`, `NavigationRegion3D`, baking on DotRecast (open question 1).
 
 ## Open questions
