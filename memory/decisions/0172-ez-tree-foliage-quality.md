@@ -3,7 +3,7 @@
 - **Date:** 2026-10-09
 - **Status:** accepted (implemented on `forest/fo`, finished on `forest/fo2`, forest slice wave 6)
 - **Milestone:** Gameplay toolkit G8e.5 (ADR 0164's plan)
-- **Spec:** docs/design/future/forest-visual-quality.md#g8e5-foliage-quality-ez-tree-extensions,
+- **Spec:** docs/design/forest.md#visual-quality-g8e (the proposal, since removed),
   docs/design/procedural-trees.md#changes-from-the-proposal (`TreeImpostor`); current state in docs/design/procedural-trees.md#foliage-quality-adr-0172
   and docs/design/materials-and-meshes.md (FoliageMaterial3D, ImpostorMaterial3D, Texture2D)
 

@@ -3,7 +3,7 @@
 - **Date:** 2026-10-09
 - **Status:** accepted (implemented on `forest/cp`, forest slice wave 5)
 - **Milestone:** Gameplay toolkit G8e (G8e.4)
-- **Spec:** docs/design/future/forest-visual-quality.md (G8e.4, ADR 0164); current state in docs/design/color-pipeline.md
+- **Spec:** docs/design/forest.md#visual-quality-g8e (the proposal, since removed) (G8e.4, ADR 0164); current state in docs/design/color-pipeline.md
   and post-processing.md
 
 ## Context

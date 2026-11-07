@@ -3,7 +3,7 @@
 - **Date:** 2026-10-09
 - **Status:** accepted (implemented on `forest/vf`, forest slice wave 6)
 - **Milestone:** Gameplay toolkit G8e.3 (ADR 0164's plan)
-- **Spec:** docs/design/future/forest-visual-quality.md#g8e3-volumetric-light; current state in
+- **Spec:** docs/design/forest.md#visual-quality-g8e (the proposal, since removed); current state in
   docs/design/post-processing.md#volumetric-fog and docs/design/color-pipeline.md#volumetric-fog-adr-0171
 
 ## Context

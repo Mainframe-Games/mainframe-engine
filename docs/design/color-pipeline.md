@@ -339,7 +339,7 @@ ones. The Forest turns them off (its R1 glade was milky with both).
 ## Cinematic post (ADR 0168)
 
 The film look, all of it off by default ([ADR 0168](../../memory/decisions/0168-cinematic-post-chain.md); G8e.4 of the
-[visual-quality proposal](future/forest-visual-quality.md#g8e4-cinematic-post-chain)). In frame order:
+[Forest → Visual quality](forest.md#visual-quality-g8e)). In frame order:
 
 ```mermaid
 flowchart LR

@@ -175,7 +175,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
     - shadows are 2 × 1024² to 60 m;
     - the R1 shafts are a little milky.
   - **Queued by Brogan, 2026-10-08:** SSAO and TAA, then the "Unreal look" phases 1–8 (G8e proposal:
-    `docs/design/future/forest-visual-quality.md`, ADR 0164, written by lane Q).
+    `docs/design/future/forest-visual-quality.md` (since removed; [Forest → Visual quality](../../docs/design/forest.md#visual-quality-g8e)), ADR 0164, written by lane Q).
     - Waves:
       - W4: lane P, the post-processing system + depth prepass + motion vectors + jitter (ADR 0163). **Merged**
         (538d271; gates green: 1819 engine, 769 editor, 141 Forest, 101 render). The G8e proposal is merged too (ADR 0164).

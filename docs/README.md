@@ -45,7 +45,7 @@ Proposed design · Diagram · Task list · Open questions. See [milestones.md](m
 | [Terrain](design/future/terrain.md): `Terrain3D`, Faceted and Realistic profiles, Terrain dock, `MultiMesh` scatter | G8a |
 | [Procedural trees](design/procedural-trees.md): Ez Tree port, LowPoly and Realistic styles, wind, impostors | G8b |
 | [Water](design/future/water.md): ponds and lakes, `River3D` streams, `WaterMaterial3D` | G8c |
-| [Forest visual quality](design/future/forest-visual-quality.md): the Unreal look in eight phases (probe GI, shadows, volumetrics, post, Ez Tree foliage, water, art, upscaling) | G8e |
+| [Forest visual quality](design/forest.md#visual-quality-g8e): the Unreal look in eight phases (probe GI, shadows, volumetrics, post, Ez Tree foliage, water, art, upscaling) | G8e |
 | [2D skeletal animation](design/future/skeleton-2d.md): engine-owned Spine-style rigs and clips, compute skinning, Spine JSON import · [Skeleton editor](design/future/skeleton-2d-editor.md) · [Animation graph](design/future/animation-graph.md) | G17 |
 
 ## Conventions
