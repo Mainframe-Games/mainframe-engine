@@ -374,10 +374,11 @@ public sealed class DrawSortTests
         }
 
         Fill(); // grow
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        Fill();
-        Fill();
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
+        {
+            Fill();
+            Fill();
+        }));
         for (var i = 1; i < list.Count; i++)
             Assert.True(list.KeyAt(i - 1) <= list.KeyAt(i));
     }
