@@ -171,7 +171,14 @@ public class LightEnvironment
     /// <see cref="WriteUbo(Span{byte}, in Vector3)"/>; <paramref name="shadows"/> false sets <c>counts.w</c> = 1, which
     /// tells the lit shaders to skip shadow maps (views of a world the shadow system did not render).
     /// </summary>
-    internal void WriteUbo(Span<byte> destination, in Vector3 cameraPosition, bool shadows)
+    internal void WriteUbo(Span<byte> destination, in Vector3 cameraPosition, bool shadows) =>
+        WriteUbo(destination, cameraPosition, shadows, directLights: true);
+
+    /// <summary>
+    /// <see cref="WriteUbo(Span{byte}, in Vector3, bool)"/>; <paramref name="directLights"/> false writes no lights at all
+    /// (counts 0, every slot zeroed), only the ambient header: <see cref="RenderDebugView.IndirectLight"/> (ADR 0275).
+    /// </summary>
+    internal void WriteUbo(Span<byte> destination, in Vector3 cameraPosition, bool shadows, bool directLights)
     {
         if (destination.Length < UboSize)
             throw new ArgumentException($"Lights UBO needs {UboSize} bytes.", nameof(destination));
@@ -181,9 +188,9 @@ public class LightEnvironment
         var f = MemoryMarshal.Cast<byte, float>(ubo);
         var i = MemoryMarshal.Cast<byte, int>(ubo);
 
-        int numDir   = Math.Min(DirectionalLights.Count, MaxDirectional);
-        int numPoint = Math.Min(PointLights.Count,       MaxPoint);
-        int numSpot  = Math.Min(SpotLights.Count,        MaxSpot);
+        int numDir   = directLights ? Math.Min(DirectionalLights.Count, MaxDirectional) : 0;
+        int numPoint = directLights ? Math.Min(PointLights.Count,       MaxPoint) : 0;
+        int numSpot  = directLights ? Math.Min(SpotLights.Count,        MaxSpot) : 0;
 
         // Header
         var ambient = _ambientLinear * AmbientEnergy;
