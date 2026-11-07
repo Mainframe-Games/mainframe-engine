@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** accepted
 - **Milestone:** Gameplay toolkit G8 (forest slice, wave 1, lane A2)
-- **Spec:** docs/design/future/terrain.md (prerequisites, MultiMesh), docs/design/future/procedural-trees.md
+- **Spec:** docs/design/future/terrain.md (prerequisites, MultiMesh), docs/design/procedural-trees.md#changes-from-the-proposal
   (FoliageMaterial3D, the Custom0 layout); docs/superpowers/plans/2026-10-08-forest-vertical-slice.md (shared contracts)
 - **Docs:** docs/design/materials-and-meshes.md, docs/design/scene-graph-and-nodes.md
 

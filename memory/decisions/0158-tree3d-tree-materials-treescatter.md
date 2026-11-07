@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** accepted
 - **Milestone:** Gameplay toolkit G8 (forest slice, wave 2, lane G)
-- **Spec:** docs/design/future/procedural-trees.md (`Tree3D`, styles, wind, LOD chain, scatter integration);
+- **Spec:** docs/design/procedural-trees.md#changes-from-the-proposal (`Tree3D`, styles, wind, LOD chain, scatter integration);
   docs/superpowers/plans/2026-10-08-forest-vertical-slice.md (shared contracts)
 - **Docs:** docs/design/procedural-trees.md, docs/design/materials-and-meshes.md, docs/design/water.md
 
