@@ -530,7 +530,15 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
     keeps a hand-edited clip's stale `BakedHash` and `PoseLibrary.WriteEdit` always writes over its own base; text
     output now, `--json` with `mfe` in G1.16.) Canonical description, edit scripts (absolute, relative, scaled, range,
     insert, arc), `BakedHash` guard; unit tests.
-15. **G1.15 Checks.** `AnimationChecks` with every check in the table, tolerances, report model; unit tests.
+15. ✅ **G1.15 Checks.** (Built, [Animation and skinning → Checks](../animation.md#checks-g1c). Changes: contacts are
+    measured (a foot within 2 cm of the ground moving up or down slower than 0.1 m/s), since pins are not kept; the root,
+    start, end and physics checks take what the script declared through `AnimationCheckOptions` (`ForScript`) and are
+    skipped without it; physics measures flight phases (both feet off the ground) in `motion` clips rather than reading
+    arcs; ground uses bone origins; loop velocity is the per-frame motion at both ends under the same 2° / 1 cm, and
+    ping-pong wants both ends at rest; a root-motion jump is the hips moving faster than 30 m/s; the hips' pitch and roll
+    are checked against `HipsTilt`. Running them on the G1.13 test jump found a baker bug: a release key dropped its pin
+    before IK, so the legs snapped straight there; a pin now holds through its release key.) `AnimationChecks` with every
+    check in the table, tolerances, report model; unit tests.
 16. **G1.16 `mfe`.** `Tools/MainframeEngine.Cli`, `MfeCli`, `CommandLine`, project discovery, `anim
     rig/poses/bake/describe/check/list`, `--json`, `just mfe`; add to `MainframeEngine.slnx`; CLI tests.
 17. **G1.17 Contact sheet.** `mfe anim render`: hidden-window renderer, per-cell sub-viewports and cameras, trails,

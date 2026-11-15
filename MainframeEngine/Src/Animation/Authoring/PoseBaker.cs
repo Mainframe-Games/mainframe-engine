@@ -235,15 +235,16 @@ public static class PoseBaker
                 _skeleton.ResetBonePoses();
                 rig.ApplyPose(pose);
 
-                foreach (var (effector, command) in key.Ik)
-                    if (command.Kind == IkCommandKind.Release)
-                        pins.Remove(effector);
-
+                // A pin holds through its release key: the effector leaves its spot after it.
                 foreach (var (effector, pin) in pins)
                 {
                     var end = Chain(effector).End;
                     Reach(effector, pin.Position, key.Joints.ContainsKey(end) ? null : pin.EndRotation, $"keys[{k}] (t = {Seconds(key.Time)} s)");
                 }
+
+                foreach (var (effector, command) in key.Ik)
+                    if (command.Kind == IkCommandKind.Release)
+                        pins.Remove(effector);
 
                 foreach (var (effector, command) in key.Ik)
                     if (command.Kind == IkCommandKind.Target)

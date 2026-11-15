@@ -338,7 +338,8 @@ reads it (every error with its JSON path, unknown properties rejected) and `Pose
 - **IK** (`TwoBoneIk`): the knee or elbow stays in the plane of the hip or shoulder, the target and the pole (knees
   forward, elbows back, turned with the upper bone's current pose), each bone turns by the shortest arc so the authored
   twist is kept, a target out of reach straightens the limb towards it (noted). A pin holds the effector's position and
-  rotation from its key to `release`.
+  rotation from its key through its `release` key (the effector leaves its spot after that key; G1.15's checks found the
+  legs snapping straight when the release key dropped the pin first).
 - **Keys written:** at the script's times, a cubic `Rotation3DTrack` per mapped bone that leaves its rest (and every IK
   chain bone), a `Position3DTrack` for the hips; quaternions kept in one hemisphere. A 60 Hz pass then samples the clip
   as played (`ClipSampler`) and adds a key to the IK chain (or the hips) at the worst sample where a pin slides or an arc
@@ -385,6 +386,35 @@ terms and changes it with an edit script on top of its current keys, hand fixes 
   `PoseLibrary.Read` loads a clip (errors list the library's clips); `PoseLibrary.WriteEdit` writes over its own base
   always and guards a variant like a bake.
 
+## Checks (G1c)
+
+G1.15 ([animation authoring → Checks](future/animation-authoring.md#checks)), `AnimationChecks.Run` in
+`MainframeEngine/Src/Animation/Authoring/AnimationChecks.cs`. Claude cannot see the editor, so a clip is measured on its
+rig at 60 Hz and at every key time, and each problem comes back as an `AnimationCheckFinding`: the check, its severity,
+the time range (consecutive failing samples merge), the subject, the worst value, a message and a suggested fix.
+`AnimationCheckReport.HasErrors` is what fails `mfe anim check`; warnings never do.
+
+| Check | Measures | Severity |
+|---|---|---|
+| `ground` | Feet, toes, hands and hips (bone origins) below the rest pose's lowest foot or toe | error past 1 cm |
+| `footSlide` | A foot in contact (within 2 cm of the ground, moving up or down slower than 0.1 m/s) sliding from where the contact began | warning past 2 cm |
+| `range` | Every canonical angle against `HumanoidLimits` (hips pitch and roll against `HipsTilt`); abduct or twist on a hinge | error past the limit + 5° |
+| `flip` | Adjacent keys of a rotation track in opposite quaternion hemispheres | error |
+| `spike` | A mapped bone's angular speed between samples | error past 1 500°/s |
+| `loop` | `Linear`: the pose and the per-frame motion at both ends; `PingPong`: no motion at either end | error past 2° / 1 cm |
+| `start`, `end` | The first and last pose's joint angles against the declared named pose | warning past 2° |
+| `root` | `InPlace`: hips drift in x/z. `Motion`: hips moving faster than 30 m/s (a jump, error), yaw faster than 180°/s (warning) | warning past 1 cm |
+| `physics` | `Motion` only: each flight (both feet off the ground) whose hips apex is more than 25 % off `g·T²/8` | warning |
+
+- Scripts are not kept, so what a script declared comes in as `AnimationCheckOptions`: the root mode, the start and end
+  poses, gravity (`ForScript(script, gravity)` fills them from a pose script). Checks without them are skipped and
+  listed in `Skipped`. Contacts are measured, not read from pins.
+- `AnimationCheckTolerances` holds every threshold; `With("footSlide=0.03, range=10")` sets them by name (`ground`,
+  `footSlide`, `contactHeight`, `range`, `angularSpeed`, `loopAngle`, `loopDistance`, `startEnd`, `rootDrift`,
+  `rootYawRate`, `physics`), as `mfe anim check --tolerance` will.
+- `ToText()` prints a summary line, the findings (errors first) and the skipped checks.
+- An in-place walk cycle slides its planted foot by design (the body is what moves): expect `footSlide` warnings there.
+
 ## Guide
 
 [Getting started → Animate a character](../getting-started.md#animate-a-character) walks through exporting from
@@ -411,7 +441,9 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   `PoseBakerTests`, `PoseLibraryTests` (G1.13), `ClipDescriberTests` (the baked jump's angles, contacts, eases and partial
   keys read back; a hand-made clip; the text), `PoseEditScriptParserTests` (every edit error names its path) and
   `PoseEditorTests` (only named keys change, inserts, new tracks, hand-placed keys kept, eases, arcs ×1.3 and absolute,
-  pinned feet holding when the hips go lower, IK targets, the `BakedHash` rules, apply errors) on the test character.
+  pinned feet holding when the hips go lower, IK targets, the `BakedHash` rules, apply errors) and `AnimationChecksTests`
+  (a clean squat passes; the G1.13 test jump's real problems are found; a clip built to break each check reports it;
+  tolerances move the thresholds) on the test character.
 - **Editor:** `AnimationNodesTests` (warnings, icons), `AnimationEditorTests` (every undo action, key buttons and K,
   drags with snap and cancel, rubber band, method and audio keys, preview capture and restore, saving while previewing),
   `TimelineTests` (zoom around the mouse, ruler steps); the song tab's tests run on the shared timeline.
