@@ -143,7 +143,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `HumanoidMap.Detect` (names, structure, `.mfmeta` `humanoid` overrides), `HumanoidRig` (canonical angles ↔ rig rotations),
   `HumanoidLimits`, `HumanoidPoses`); `Authoring/` (G1.13, ADR 0282: `PoseScript` + `PoseScriptParser`, `TwoBoneIk`,
   `PoseBaker` (sparse cubic keys, refinement), `ClipSampler`, `AnimationHash` → `Animation.BakedHash`, `PoseLibrary`
-  (library `.mfres` write and the `.mfmeta` `libraries` link the importer reads));
+  (library `.mfres` write and the `.mfmeta` `libraries` link the importer reads); G1.14: `ClipDescriber` (clips read back
+  in canonical terms), `PoseEditScript` + `PoseScriptParser.ParseEdit`, `PoseEditor` (edits on top of the keys), `TrackKeys`);
   `Scene/Nodes3D/{Skeleton3D,Skin,BoneAttachment3D}.cs`; compute pre-skinning in `Rendering/Meshes/MeshSkinning.cs`; skinned
   glTF/FBX import (ADR 0208). See `docs/design/animation.md`
 - `MainframeEngine/Src/Rendering/Resources/`, `Rendering/Meshes/` — `Mesh`/primitives, `StandardMaterial3D`, `Texture2D`;

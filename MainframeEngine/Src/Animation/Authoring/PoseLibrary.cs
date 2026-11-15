@@ -62,6 +62,31 @@ public static class PoseLibrary
         return new PoseLibraryWriteResult { CreatedLibrary = created, ReplacedClip = existing is not null, Linked = linked, Notes = notes };
     }
 
+    /// <summary>The clip <paramref name="name"/> of the library at <paramref name="libraryPath"/>.</summary>
+    /// <exception cref="PoseLibraryException">The library or the clip does not exist.</exception>
+    public static Animation Read(string libraryPath, string name)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(libraryPath);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        if (!ResourceLoader.Exists(libraryPath))
+            throw new PoseLibraryException($"{libraryPath} does not exist.");
+        var library = ResourceLoader.Load<AnimationLibrary>(libraryPath);
+        return library.Get(name) ?? throw new PoseLibraryException(
+            $"{libraryPath} has no clip '{name}' (clips: {string.Join(", ", library.Animations.Select(a => a.ResourceName))}).");
+    }
+
+    /// <summary>
+    /// Writes an edit's result (<see cref="PoseEditor"/>): over its own base it always replaces (an edit keeps the hand fixes
+    /// it read), a variant under another name is guarded like a bake (<paramref name="replace"/>). The library is not
+    /// linked again: the base already came from it.
+    /// </summary>
+    public static PoseLibraryWriteResult WriteEdit(Animation clip, string libraryPath, string baseName, bool replace = false)
+    {
+        ArgumentNullException.ThrowIfNull(clip);
+        ArgumentException.ThrowIfNullOrEmpty(baseName);
+        return Write(clip, libraryPath, modelPath: "", replace: replace || clip.ResourceName == baseName, link: false);
+    }
+
     /// <summary>True when <paramref name="clip"/> was baked and nobody changed its keys since.</summary>
     public static bool IsUntouchedBake(Animation clip) =>
         clip.BakedHash.Length > 0 && clip.BakedHash == AnimationHash.Compute(clip);

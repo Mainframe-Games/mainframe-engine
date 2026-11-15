@@ -21,7 +21,7 @@ public sealed class PoseScriptException(IReadOnlyList<PoseScriptError> errors)
 /// Reads pose scripts (G1c). Every error carries its JSON path; all errors are collected and nothing is returned when there
 /// is one. Unknown properties are errors, so a typo does not silently do nothing.
 /// </summary>
-public static class PoseScriptParser
+public static partial class PoseScriptParser
 {
     /// <summary>Reads <paramref name="json"/>; throws <see cref="PoseScriptException"/> with every problem found.</summary>
     public static PoseScript Parse(string json)
@@ -277,25 +277,7 @@ public static class PoseScriptParser
             }
         }
 
-        float? ease = null;
-        if (element.TryGetProperty("ease", out var easeElement))
-        {
-            ease = easeElement.ValueKind switch
-            {
-                JsonValueKind.Number => easeElement.GetSingle(),
-                JsonValueKind.String => easeElement.GetString() switch
-                {
-                    "linear" => 1f,
-                    "in" => 2f,
-                    "out" => 0.5f,
-                    "inOut" => -2f,
-                    _ => Error<float?>(null, path + ".ease", "must be \"linear\", \"in\", \"out\", \"inOut\" or a number", errors),
-                },
-                _ => Error<float?>(null, path + ".ease", "must be \"linear\", \"in\", \"out\", \"inOut\" or a number", errors),
-            };
-            if (ease is 0f)
-                errors.Add(new(path + ".ease", "0 holds the value forever; use a positive or negative ease"));
-        }
+        var ease = element.TryGetProperty("ease", out var easeElement) ? ReadEase(easeElement, path + ".ease", errors) : null;
 
         return time is null ? null : new PoseKey
         {
@@ -307,6 +289,27 @@ public static class PoseScriptParser
             Ik = ik,
             Ease = ease,
         };
+    }
+
+    private static float? ReadEase(JsonElement element, string path, List<PoseScriptError> errors)
+    {
+        const string Expected = "must be \"linear\", \"in\", \"out\", \"inOut\" or a number";
+        var ease = element.ValueKind switch
+        {
+            JsonValueKind.Number => element.GetSingle(),
+            JsonValueKind.String => element.GetString() switch
+            {
+                "linear" => 1f,
+                "in" => 2f,
+                "out" => 0.5f,
+                "inOut" => -2f,
+                _ => Error<float?>(null, path, Expected, errors),
+            },
+            _ => Error<float?>(null, path, Expected, errors),
+        };
+        if (ease is 0f)
+            errors.Add(new(path, "0 holds the value forever; use a positive or negative ease"));
+        return ease;
     }
 
     private static IkCommand? ReadIk(JsonElement value, string path, List<PoseScriptError> errors)

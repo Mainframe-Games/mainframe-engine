@@ -349,6 +349,42 @@ reads it (every error with its JSON path, unknown properties rejected) and `Pose
   `.mfmeta` `libraries` ([Asset pipeline](asset-pipeline.md#linked-animation-libraries-g1c)), changing nothing else there,
   and notes when the baked clip hides an imported clip of the same name.
 
+## Describe and edit scripts (G1c)
+
+G1.14 ([animation authoring → Edits](future/animation-authoring.md#edits-keys-are-the-truth)), in
+`MainframeEngine/Src/Animation/Authoring/`. After a bake the keys are the truth: an agent reads a clip back in canonical
+terms and changes it with an edit script on top of its current keys, hand fixes included.
+
+- **Key times** of a clip are the union of its transform tracks' key times on the skeleton, merged within 1 ms
+  (`ClipDescriber.KeyTimes`); `TrackKeys` sets or inserts keys (a new key takes the ease of the segment it splits;
+  quaternions stay in one hemisphere), shared with the baker's refinement.
+- **`ClipDescriber.Describe`** samples the clip (`ClipSampler`) at its key times, or chosen ones, and reads the pose with
+  `HumanoidRig.ReadPose`: the hips, every mapped bone's `flex/abduct/twist`, and per foot and hand its position in
+  character space (`HumanoidRig.ToCharacterSpace`, the space of IK `pos` targets), its height above the ground (the rest
+  pose's lowest foot or toe) and contact (within 2 cm). A time keyed by only some tracks lists those bones (refinement
+  and hand-placed keys); a time keyed by none is sampled; the ease is the most common one among the tracks keyed there.
+  `ClipDescription.ToText()` prints it for people and agents (non-zero angles only); it also says whether the clip is an
+  untouched bake, a bake changed since, or not baked, and lists tracks on unmapped bones.
+- **Edit scripts** (`PoseScriptParser.ParseEdit`, `IsEditScript`; errors with JSON paths like pose scripts): `model`,
+  `library`, `base`, `name` (default: the base; another name writes a variant) and `edits`, each with `t` (an existing
+  key time, or any time with `"insert": true`) or `range: [from, to]` (every key time in it), and any of `hips`, `joints`
+  (values `20`, `"+=5"`, `"-=10"` or `"*1.3"` per component), `mirror`, `ease`, `ik` and, with a range, `arc`.
+- **`PoseEditor.Apply`** works on a copy of the base. Each edit solves its keys on the clip as it was before that edit:
+  the named bones (and their mirrors) take the changed angles; nothing else is written, so other tracks, key times,
+  counts and eases stay. A bone keyed where its track has no key gets one there; a bone with no track gets one keyed at
+  the edited times and the clip key times just outside them, so the change stays local. Unmapped bones are errors.
+- **IK in edits:** `"pin"` holds the foot or hand where the clip had it before the edit (its rotation too, unless the edit
+  names the end bone); `{ "pos": [x, y, z] }` reaches a character-space target. The chain is re-solved at the edited
+  times, then over the whole planted span around them (adjacent key times where the effector was at the same spot) at
+  60 Hz: chain keys inside it are re-solved and refinement keys added where it slides more than 1 cm.
+- **Arcs:** `{ "range": [a, b], "arc": { "height": "*1.3" } }` measures the hips' apex above take-off (60 Hz) and scales
+  the hips keys inside the range along the up axis, above the take-off-to-landing line, until the new apex is reached
+  (within 1 cm, or a note says how far it got). It needs a hips position track with keys inside the range.
+- **`BakedHash`:** an edit of an untouched bake stores the new hash (still untouched: no person's work in it); an edit of
+  a hand-edited or hand-made clip keeps its old hash, so a later full re-bake still refuses without `replace`.
+  `PoseLibrary.Read` loads a clip (errors list the library's clips); `PoseLibrary.WriteEdit` writes over its own base
+  always and guards a variant like a bake.
+
 ## Guide
 
 [Getting started → Animate a character](../getting-started.md#animate-a-character) walks through exporting from
@@ -371,6 +407,11 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   values, cubic and transitions, loop wrap, bezier, method keys across loops, backwards and ping-pong, deferred and
   immediate, audio keys, blend times, sync state, value crossfades, `.mfres` round trip, 0 B over 1 000 nodes). Generator:
   `AnimationMethodsGetInvokersAndInvalidOnesAreReported` (MFG011). Benchmark: `AnimationBenchmarks`.
+- **Authoring** (`Tests/MainframeEngine.Tests/Animation/Authoring/`, G1c): `PoseScriptParserTests`, `TwoBoneIkTests`,
+  `PoseBakerTests`, `PoseLibraryTests` (G1.13), `ClipDescriberTests` (the baked jump's angles, contacts, eases and partial
+  keys read back; a hand-made clip; the text), `PoseEditScriptParserTests` (every edit error names its path) and
+  `PoseEditorTests` (only named keys change, inserts, new tracks, hand-placed keys kept, eases, arcs ×1.3 and absolute,
+  pinned feet holding when the hips go lower, IK targets, the `BakedHash` rules, apply errors) on the test character.
 - **Editor:** `AnimationNodesTests` (warnings, icons), `AnimationEditorTests` (every undo action, key buttons and K,
   drags with snap and cancel, rubber band, method and audio keys, preview capture and restore, saving while previewing),
   `TimelineTests` (zoom around the mouse, ruler steps); the song tab's tests run on the shared timeline.
