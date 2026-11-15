@@ -123,6 +123,17 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     /// </summary>
     public IReadOnlyCollection<Resource> EditedResourceFiles => _editedResourceFiles;
 
+    /// <summary>
+    /// Drops the resource file at <paramref name="path"/> from <see cref="EditedResourceFiles"/>: its file was loaded over
+    /// the edits (<see cref="ResourceReloader"/>'s "Load from disk"), so saving the scene must not write it back.
+    /// </summary>
+    public void ForgetEditedResourceFile(string path)
+    {
+        var assets = AssetDatabase.Current;
+        var key = assets.ToProjectPath(assets.ToAbsolutePath(path));
+        _editedResourceFiles.RemoveWhere(r => r.ResourcePath is { } p && assets.ToProjectPath(assets.ToAbsolutePath(p)) == key);
+    }
+
     /// <summary>Writes every resource file edited in place (keeping their UIDs); returns their project paths.</summary>
     internal IReadOnlyList<string> SaveEditedResourceFiles()
     {

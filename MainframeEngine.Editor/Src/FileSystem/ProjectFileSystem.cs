@@ -23,6 +23,7 @@ public sealed class ProjectFileSystem : IDisposable
     private readonly string[] _watchRoots;
     private HashSet<string> _unsaved = new(StringComparer.Ordinal);
     private DebouncedFileWatcher? _watcher;
+    private readonly System.Collections.Concurrent.ConcurrentQueue<string> _changedFiles = new();
     private int _changesPending;
     private volatile bool _showMeta;
     private volatile bool _showHidden;
@@ -468,6 +469,11 @@ public sealed class ProjectFileSystem : IDisposable
 
     private void OnWatcherChanged(IReadOnlyList<string> paths)
     {
+        // Resource files and sidecars for the ResourceReloader (G1.18), whether or not the tree shows them.
+        foreach (var path in paths)
+            if (ProjectPathOf(path) is { } projectPath && IsReloadable(projectPath))
+                _changedFiles.Enqueue(projectPath);
+
         foreach (var path in paths)
         {
             if (!IsRelevantChange(path))
@@ -475,6 +481,37 @@ public sealed class ProjectFileSystem : IDisposable
             Interlocked.Exchange(ref _changesPending, 1);
             return;
         }
+    }
+
+    /// <summary>
+    /// Main thread: the project paths (<c>Assets/…</c>, '/' separators) of resource files (<c>.mfres</c>) and sidecars
+    /// (<c>.mfmeta</c>) the watcher reported since the last call, each once. The <see cref="ResourceReloader"/> reads them.
+    /// </summary>
+    public IReadOnlyList<string> TakeChangedFiles()
+    {
+        if (_changedFiles.IsEmpty)
+            return []; // called every frame: nothing allocated while nothing changes
+        var paths = new List<string>();
+        while (_changedFiles.TryDequeue(out var path))
+            if (!paths.Contains(path, StringComparer.Ordinal))
+                paths.Add(path);
+        return paths;
+    }
+
+    private static bool IsReloadable(string projectPath) =>
+        projectPath.EndsWith(SceneFormat.ResourceExtension, StringComparison.OrdinalIgnoreCase) ||
+        projectPath.EndsWith(AssetDatabase.MetaExtension, StringComparison.OrdinalIgnoreCase);
+
+    private string? ProjectPathOf(string path)
+    {
+        foreach (var root in _watchRoots)
+        {
+            var relative = Path.GetRelativePath(root, path);
+            if (!relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative) && relative != ".")
+                return relative.Replace('\\', '/');
+        }
+
+        return null;
     }
 
     private bool IsRelevantChange(string path)

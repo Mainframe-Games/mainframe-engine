@@ -282,6 +282,12 @@ the pin keeps the panel on that player while other nodes are selected for keying
   fire in the editor. Before the first preview the panel records the values the animation touches and puts them back on
   Stop, when the edited player changes, and around every save, so saved scenes hold authored values, never a preview
   frame (Godot's `RESET` animation is not needed).
+- **Instanced models** (G1.18): selecting an instance (an imported model, a sub-scene) whose scene has an
+  `AnimationPlayer` shows that player in the panel **read-only** (a lock and the scene's name in the header): its clips,
+  baked ones from linked libraries included, play, scrub and loop, and nothing is edited (no history, no key buttons, the
+  edit controls hidden). They belong to the model and its libraries: change them with `mfe anim bake` or by opening the
+  scene. When a library changes on disk ([Editor → Files changed on disk](editor.md#files-changed-on-disk)) a running
+  preview restarts from its time on the new keys.
 - **Undo:** every edit (keys, tracks, animation settings, library changes) is one step in the scene tab's history
   (`AnimationEditAction` snapshots the animation's tracks, `AnimationLibraryAction` the library); a key drag is one step,
   Esc cancels it.
@@ -503,7 +509,9 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   option errors) and `ContactSheetLayoutTests` (frames, geometry, the canvas, a composed sheet). Render:
   `ContactSheetTests` runs `mfe.dll` out of process on a temp project (every cell of a shaded and a `--flat` sheet
   shows the character; `--frame` with `--json`).
-- **Editor:** `AnimationNodesTests` (warnings, icons), `AnimationEditorTests` (every undo action, key buttons and K,
+- **Editor:** `EditorReloadTests` (G1.18: a linked library rewritten on disk reloads into the open scene's player, the
+  editor's own save is no reload, unsaved edits ask first, a model that now links a library reopens the clean scene and
+  asks for a dirty one, an instanced model's player previews read-only), `AnimationNodesTests` (warnings, icons), `AnimationEditorTests` (every undo action, key buttons and K,
   drags with snap and cancel, rubber band, method and audio keys, preview capture and restore, saving while previewing),
   `TimelineTests` (zoom around the mouse, ruler steps); the song tab's tests run on the shared timeline.
 - **QA:** [`Tests/QA/animation-walkthrough.qa`](../../Tests/QA/animation-walkthrough.qa) (`just qa-editor

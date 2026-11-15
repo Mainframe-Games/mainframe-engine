@@ -1010,6 +1010,26 @@ missing dependency, import error (invalid JSON, undecodable image).
   matching slot), the viewport (instanced under the root) or an inspector resource slot.
 - A debounced watcher picks up outside changes; the panel applies them on the main thread.
 
+### Files changed on disk
+
+(G1.18) A resource or a model changed outside the editor (`mfe anim bake`, a person, a script) shows up in the open
+scenes without reopening them. The watcher also queues every changed `.mfres` and `.mfmeta` path, shown or hidden
+(`ProjectFileSystem.TakeChangedFiles`), and the FileSystem panel's tick hands them to the `ResourceReloader`
+(`Src/FileSystem/ResourceReloader.cs`, `EditorWorkspace.Reloader`):
+
+- **A loaded `.mfres`** reloads in place (`ResourceLoader.ReloadInPlace`): the same instance takes the file's values,
+  inline resources are updated in place and named ones (a library's animations) matched by name, so open scenes, players
+  and the inspector keep their references; changed animations re-bind (`Animation.NotifyChanged`). A file whose size and
+  time match its load or the editor's last save is left alone, so the editor's own saves are not reloads. A file that no
+  longer parses is logged and the resource keeps what it had.
+- **Unsaved edits** to that file (the inspected resource is dirty, or a dirty scene edited it in place) ask first, in the
+  message dialog: **Keep mine** (saving overwrites the file) or **Load from disk** (the edits and their undo steps go).
+- **A loaded model whose `.mfmeta` changed** (a newly linked animation library, an import setting) is evicted
+  (`ResourceLoader.Evict`), and the clean scenes that instance it reopen in place (`Suspend`/`Resume`, as code reload
+  does: same tab, selection and view); a scene with unsaved changes gets a message to save and reopen it.
+- The Animation panel restarts a running preview at its time when something reloads
+  ([Animation and skinning → Animation panel](animation.md#animation-panel)).
+
 ## Signals
 
 The inspector's **Signals** tab ([0101](../../memory/decisions/0101-editor-polish-e5.md)) lists the selected node's

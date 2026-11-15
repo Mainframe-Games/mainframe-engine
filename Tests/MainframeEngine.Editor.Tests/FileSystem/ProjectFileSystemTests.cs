@@ -262,4 +262,22 @@ public sealed class ProjectFileSystemTests : IDisposable
         Assert.True(FileSystemProject.WaitUntil(_fs.PumpChanges), "No change was reported.");
         Assert.NotNull(_fs.Find("Assets/Scenes/new.txt"));
     }
+
+    [Fact]
+    public void ChangedResourceFilesAndSidecarsReachTheReloaderEvenWhenMetaFilesAreHidden()
+    {
+        _fs.StartWatching(TimeSpan.FromMilliseconds(30));
+        Assert.Empty(_fs.TakeChangedFiles());
+
+        File.AppendAllText(_project.Abs(FileSystemProject.WoodPath + AssetDatabase.MetaExtension), " ");
+        File.AppendAllText(_project.Abs(FileSystemProject.SettingsPath), " ");
+        File.WriteAllText(_project.Abs("Assets/Scenes/notes.txt"), "x");
+        var changed = new List<string>();
+        Assert.True(FileSystemProject.WaitUntil(() =>
+        {
+            changed.AddRange(_fs.TakeChangedFiles());
+            return changed.Contains(FileSystemProject.SettingsPath) && changed.Contains(FileSystemProject.WoodPath + AssetDatabase.MetaExtension);
+        }), $"Reported: {string.Join(", ", changed)}");
+        Assert.DoesNotContain("Assets/Scenes/notes.txt", changed);
+    }
 }
