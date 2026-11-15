@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace MainframeEngine;
 
 /// <summary>Where a <see cref="HumanoidMap"/> entry came from.</summary>
@@ -66,6 +68,28 @@ public sealed class HumanoidMap
             if (_rigBones[(int)bone] is { } rigBone)
                 map[bone] = rigBone;
         return map;
+    }
+
+    /// <summary>
+    /// Stores this map as the <c>humanoid</c> setting of <paramref name="modelPath"/>'s <c>.mfmeta</c> (<c>mfe anim rig
+    /// --write-meta</c>), creating the sidecar when missing and changing nothing else in it. Returns false when the sidecar
+    /// already holds exactly this map.
+    /// </summary>
+    public bool Store(string modelPath)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(modelPath);
+        var map = ToDictionary().ToDictionary(e => e.Key.ToString(), e => e.Value, StringComparer.Ordinal);
+        var assets = AssetDatabase.Current;
+        var current = ModelImportSettings.FromMeta(assets.ReadOrCreateMeta(modelPath, create: false)).Humanoid;
+        if (map.Count == current.Count && map.All(e => current.TryGetValue(e.Key, out var v) && v == e.Value))
+            return false;
+        var meta = assets.ReadOrCreateMeta(modelPath, create: true)!;
+        meta.Importer ??= ModelImportSettings.ImporterName;
+        var settings = meta.Settings ?? new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        settings["humanoid"] = JsonSerializer.SerializeToElement(map, AssetJsonContext.Default.DictionaryStringString);
+        meta.Settings = settings;
+        assets.WriteMeta(modelPath, meta);
+        return true;
     }
 
     /// <summary>
