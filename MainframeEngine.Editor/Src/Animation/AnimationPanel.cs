@@ -137,8 +137,26 @@ public sealed class AnimationPanel : EditorDocument
         rml.Append("<span class=\"sep\"></span>");
         rml.Append("<button class=\"chip\" data-command=\"anim.pick\" data-tooltip=\"Animation — pick the animation to edit\"><span class=\"icon icon-sm icon-movie\"></span><span>")
             .Append(RmlText.Escape(animation is null ? "No animation" : editor.AnimationName)).Append("</span></button>");
-        Button(rml, "anim.new", "plus", false, "New Animation — an empty 1 s animation in the player's default library");
-        if (animation is not null)
+        if (editor.ReadOnly)
+        {
+            // G1.18: an instanced model's player: preview only.
+            var source = RmlText.Escape(Path.GetFileName(editor.ReadOnlySource ?? "the instanced scene"));
+            rml.Append("<span class=\"caption\" data-tooltip=\"Read-only — these clips belong to ").Append(source)
+                .Append(" and its linked libraries: preview them here, change them with mfe anim bake or by opening the scene\">")
+                .Append("<span class=\"icon icon-sm icon-lock\"></span> ").Append(source).Append("</span>");
+            if (animation is not null)
+            {
+                rml.Append("<span class=\"caption mono\" data-tooltip=\"Length — the animation's duration\">").Append(Seconds(animation.Length)).Append("</span>");
+                Button(rml, "anim.snap", "magnet", editor.Snap, "Snap — the playhead snaps to the step (" + Seconds(animation.Step) + ")");
+                Button(rml, "anim.frames", "timeline", editor.ShowFrames, "Frames — the ruler counts frames at the step");
+            }
+        }
+        else
+        {
+            Button(rml, "anim.new", "plus", false, "New Animation — an empty 1 s animation in the player's default library");
+        }
+
+        if (animation is not null && !editor.ReadOnly)
         {
             Button(rml, "anim.duplicate", "copy", false, "Duplicate Animation — a copy named …_copy");
             Button(rml, "anim.rename", "pencil", false, "Rename Animation");
@@ -173,7 +191,9 @@ public sealed class AnimationPanel : EditorDocument
         var rml = new StringBuilder(2048);
         rml.Append("<div class=\"an-ruler-spacer\"></div>");
         if (Editor.Animation is not { } animation)
-            return rml.Append("<div class=\"an-empty\">No animation: create one with +.</div>").ToString();
+            return rml.Append(Editor.ReadOnly
+                ? "<div class=\"an-empty\">This model has no animations.</div>"
+                : "<div class=\"an-empty\">No animation: create one with +.</div>").ToString();
         if (animation.Tracks.Count == 0)
             rml.Append("<div class=\"an-empty\">No tracks: key a property with the inspector's key buttons, or K for the selected 3D nodes.</div>");
         for (var i = 0; i < animation.Tracks.Count; i++)
@@ -182,6 +202,12 @@ public sealed class AnimationPanel : EditorDocument
             var (icon, label) = Describe(track);
             rml.Append("<div class=\"an-track").Append(track.Enabled ? "" : " disabled").Append("\"><span class=\"icon icon-sm icon-").Append(icon)
                 .Append("\"></span><span class=\"an-name\" data-tooltip=\"").Append(RmlText.Escape(label)).Append("\">").Append(RmlText.Escape(label)).Append("</span>");
+            if (Editor.ReadOnly)
+            {
+                rml.Append("</div>");
+                continue;
+            }
+
             if (track is InterpolatedTrack it)
             {
                 var (interpIcon, interpTip) = it.Interpolation switch

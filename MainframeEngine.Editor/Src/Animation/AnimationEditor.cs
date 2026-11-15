@@ -21,6 +21,8 @@ public sealed class AnimationEditor
     private readonly EditorWorkspace? _workspace;
     private AnimationPlayer? _testPlayer;
     private UndoRedo? _testHistory;
+    private Node? _testSelection;
+    private Node? _testRoot;
     private AnimationPlayer? _pinned;
     private AnimationPlayer? _previewPlayer;
     private string _animation = "";
@@ -73,27 +75,94 @@ public sealed class AnimationEditor
         _testHistory = history;
     }
 
-    /// <summary>The edited player: the pinned one, else the active scene's selected <see cref="AnimationPlayer"/>.</summary>
+    /// <summary>Tests: resolve the player from <paramref name="selected"/> in a scene rooted at <paramref name="root"/>.</summary>
+    internal void SelectForTests(Node? selected, Node root, UndoRedo? history)
+    {
+        _testPlayer = null;
+        _testSelection = selected;
+        _testRoot = root;
+        _testHistory = history;
+    }
+
+    /// <summary>
+    /// The edited player: the pinned one, else the active scene's selected <see cref="AnimationPlayer"/>, else the player
+    /// inside a selected instance (an imported model, a sub-scene: <see cref="ReadOnly"/>, previewed only).
+    /// </summary>
     public AnimationPlayer? Player
     {
         get
         {
             if (_workspace is null)
-                return _testPlayer;
+                return _testPlayer ?? (_testRoot is null ? null : Resolve(_testSelection, _testRoot, out _));
             if (_pinned is { IsInsideTree: true } pinned)
                 return pinned;
             var scene = _workspace.Session.Active;
             if (scene is null || _workspace.Mode != EditorMode.Game)
                 return null;
-            return scene.Selection.Primary as AnimationPlayer;
+            return Resolve(scene.Selection.Primary, scene.Root, out _);
         }
+    }
+
+    /// <summary>
+    /// The player is inside an instanced scene (G1.18): its clips belong to that scene or model and its linked libraries,
+    /// so the panel previews them and edits nothing (bake or edit them with <c>mfe anim</c>, or open the scene).
+    /// </summary>
+    public bool ReadOnly => Player is { } player && InsideInstance(player);
+
+    /// <summary>The instanced scene the read-only player belongs to (its file), or null.</summary>
+    public string? ReadOnlySource
+    {
+        get
+        {
+            for (var node = Player?.Parent; node is not null; node = node.Parent)
+                if (node.SceneFilePath is { } file && node.Owner is not null)
+                    return file;
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The player for <paramref name="selected"/> in the scene rooted at <paramref name="root"/>: a selected player, or
+    /// the first player inside a selected instance (a node with a <see cref="Node.SceneFilePath"/> other than the root).
+    /// </summary>
+    internal static AnimationPlayer? Resolve(Node? selected, Node root, out bool readOnly)
+    {
+        readOnly = false;
+        if (selected is AnimationPlayer player)
+            return player;
+        if (selected is null || ReferenceEquals(selected, root) || selected.SceneFilePath is null)
+            return null;
+        readOnly = true;
+        return FirstPlayer(selected);
+    }
+
+    private static AnimationPlayer? FirstPlayer(Node node)
+    {
+        foreach (var child in node.Children)
+        {
+            if (child is AnimationPlayer player)
+                return player;
+            if (FirstPlayer(child) is { } found)
+                return found;
+        }
+
+        return null;
+    }
+
+    // True when an ancestor below the edited scene's root is an instance (its owner is in the edited scene).
+    private static bool InsideInstance(Node node)
+    {
+        for (var at = node.Parent; at is not null; at = at.Parent)
+            if (at.SceneFilePath is not null && at.Owner is not null)
+                return true;
+        return false;
     }
 
     /// <summary>True while the Animation tab is available.</summary>
     public bool IsActive => Player is not null;
 
-    /// <summary>The inspector shows key buttons: an animation is being edited.</summary>
-    public bool KeysShown => IsActive && Animation is not null;
+    /// <summary>The inspector shows key buttons: an animation is being edited (not a read-only instance's).</summary>
+    public bool KeysShown => IsActive && !ReadOnly && Animation is not null;
 
     /// <summary>
     /// True when the inspector row of <paramref name="property"/> on <paramref name="target"/> gets a key button: a node under
@@ -117,7 +186,8 @@ public sealed class AnimationEditor
         _animation = "";
     }
 
-    private UndoRedo? History => _workspace?.Session.Active?.History ?? _testHistory;
+    // No history, no edits: every edit commits through it (a read-only instance's player only previews).
+    private UndoRedo? History => ReadOnly ? null : _workspace?.Session.Active?.History ?? _testHistory;
 
     /// <summary>The edited animation's name (library-prefixed outside the default library).</summary>
     public string AnimationName
@@ -673,6 +743,24 @@ public sealed class AnimationEditor
 
         Playhead = next;
         PreviewAt(next);
+        Touch();
+    }
+
+    /// <summary>
+    /// A resource changed on disk was reloaded (<see cref="ResourceReloader"/>): a running preview restarts from its time on
+    /// the reloaded keys (what it captured goes back first), and the panel redraws.
+    /// </summary>
+    public void OnResourceReloaded(Resource resource)
+    {
+        if (_previewPlayer is not null)
+        {
+            var playing = Playing;
+            RestoreCaptured();
+            Playhead = Math.Min(Playhead, Animation?.Length ?? 0);
+            PreviewAt(Playhead);
+            Playing = playing;
+        }
+
         Touch();
     }
 
