@@ -1,6 +1,6 @@
 # Proposal: Accessibility (UI scale, colour vision, captions, comfort, input assists)
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G14) · **Status:** ⬜ planned ·
+**Milestone:** [Player UI, input and accessibility](../../milestones.md#player-ui-input-and-accessibility-) (G14) · **Status:** ⬜ planned ·
 **Depends on:** [M8 game UI](../game-ui.md) (RmlUi layers, widget library, ADR 0181 scaling), [M7 audio](../audio.md)
 (voices, listener), [Post-processing](../post-processing.md) (ADR 0163 stages), [M9 localization](../localization.md) ·
 **Related:** [Save games and settings](save-and-settings.md) (G4: `UserSettings`, settings menu, rebinding),

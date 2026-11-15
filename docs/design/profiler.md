@@ -1,6 +1,6 @@
 # Frame profiler
 
-**Milestone:** [Gameplay toolkit](../milestones.md#gameplay-toolkit-) (G10) · **Status:** ✅ shipped
+**Milestone:** [Developer tools](../milestones.md#developer-tools-) (G10) · **Status:** ✅ shipped
 ([ADR 0219](../../memory/decisions/0219-profiler-recording-model.md): recording model,
 [ADR 0220](../../memory/decisions/0220-profiler-gpu-timeline-and-ui.md): GPU timeline and UI)
 

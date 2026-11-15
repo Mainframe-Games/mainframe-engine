@@ -240,4 +240,4 @@ collision, runtime tile data overrides, a Godot `.tres`/`.tscn` importer.
 
 [2D canvas](canvas.md) · [Animated sprites](animated-sprites.md) · [Physics](physics.md) · [Editor](editor.md) ·
 [Scene serialization](scene-serialization.md) · [Demo](demo.md) · [Navigation](navigation.md) (G3) ·
-[Milestones](../milestones.md#gameplay-toolkit-)
+[Milestones](../milestones.md#2d-sprites-and-tile-maps-)

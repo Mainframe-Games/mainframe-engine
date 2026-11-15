@@ -1,6 +1,6 @@
 # Proposal: Water (ponds and lakes, River3D streams, WaterMaterial3D)
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G8c) · **Status:** ⬜ planned ·
+**Milestone:** [World building](../../milestones.md#world-building-) (G8c) · **Status:** ⬜ planned ·
 **Depends on:** [Terrain](terrain.md) (G8a: `Terrain3D`, the water layer, the edit API, `MeshSurface.Custom0`,
 `IEditorViewportTool`), [Rendering features](../rendering-features.md) (G6.1 PBR and G6.2 IBL for `WaterMaterial3D`;
 G6.3 particles for spray; G6.6's depth prepass), [Shaders](../shaders.md)

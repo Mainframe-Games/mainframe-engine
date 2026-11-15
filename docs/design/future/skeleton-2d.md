@@ -1,6 +1,6 @@
 # Proposal: 2D skeletal animation (SkeletonSprite2D)
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G17a–G17g) · **Status:** ⬜ planned ·
+**Milestone:** [2D skeletal animation](../../milestones.md#2d-skeletal-animation-) (G17a–G17g) · **Status:** ⬜ planned ·
 **Depends on:** [Canvas](../canvas.md), [Scene serialization](../scene-serialization.md),
 [Asset pipeline](../asset-pipeline.md), [Editor](../editor.md) · **Related:**
 [Skeleton editor](skeleton-2d-editor.md) (the Skeleton tab: Setup and Animate modes),

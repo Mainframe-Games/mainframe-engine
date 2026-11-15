@@ -11,7 +11,8 @@ changes merged since then are in `just state-pending`.
 
 ## What exists
 
-- **Milestones:** M0–M10, Demo & polish and most of the gameplay toolkit are done (`docs/milestones.md`).
+- **Milestones:** M0–M10, Demo & polish and most of the gameplay toolkit's milestones (G rows, ADR 0283) are done
+  (`docs/milestones.md`).
 - **Engine** (`MainframeEngine`, .NET 10, Vulkan 1.2; MoltenVK bundled on macOS, SDL2 windowing via Silk.NET 2.22):
   the subsystem map is AGENTS.md's Project Structure.
 - **Editor** (`MainframeEngine.Editor`, RmlUi): Game, Music and Video modes (`docs/design/editor.md`).
@@ -79,7 +80,8 @@ Priorities, not a feature list: what remains inside each milestone is its rows i
 
 1. The Forest frame budget and the owner's sign-offs (G8e): a quiet-machine `forest-bench` at 1440p and an RTX 3060
    run, then GPU culling for trees (`docs/design/forest.md#visual-quality-g8e`).
-2. The gameplay toolkit's open rows (`docs/milestones.md#gameplay-toolkit-`), owner-pending ones first.
+2. The gameplay toolkit's open rows (the 🚧 and ⬜ G milestones in `docs/milestones.md`), owner-pending ones first;
+   rows the owner does not need become ⏭ skipped.
 3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (`just bench` prints `NEW` for each
    benchmark not in it yet).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).

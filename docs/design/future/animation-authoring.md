@@ -1,6 +1,6 @@
 # Proposal: Animation authoring (Claude-made clips, `mfe`, posing tools)
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G1c authoring, G1d posing tools, G1e root
+**Milestone:** [3D animation](../../milestones.md#3d-animation-) (G1c authoring, G1d posing tools, G1e root
 motion, G1f auto-rigging and non-humanoid rigs) · **Status:** 🚧 accepted by the owner 2026-11-07 (ADR 0281); G1c (G1.12–G1.19) built; G1d and G1f not started · **Depends on:**
 [Keyframe animation](../animation.md) (G1a `Animation`/`AnimationPlayer`, G1b `Skeleton3D`/`Skin`/skinning/import),
 [Asset pipeline](../asset-pipeline.md) (`.mfmeta` settings), [Editor](../editor.md) · **Related:**

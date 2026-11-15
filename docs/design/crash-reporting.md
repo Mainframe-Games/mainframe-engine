@@ -1,6 +1,6 @@
 # Crash reporting (desktop, editor and games)
 
-**Milestone:** [Gameplay toolkit](../milestones.md#gameplay-toolkit-) (G15) · **Status:** ✅ shipped (G15.1–G15.8; hang
+**Milestone:** [Developer tools](../milestones.md#developer-tools-) (G15) · **Status:** ✅ shipped (G15.1–G15.8; hang
 detection and per-draw markers are G15.9, later) · **Decisions:** [ADR 0221](../../memory/decisions/0221-native-crash-capture-in-house.md)
 (native capture: in-house, no new dependency), [ADR 0222](../../memory/decisions/0222-crash-report-policies.md) (fail-fast
 nodes, both upload formats, shipped PDBs, logs on) · **Related:** [Project and GameHost](project-and-gamehost.md),

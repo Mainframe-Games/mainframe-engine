@@ -1,9 +1,9 @@
 # Proposal: Video playback
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G16) · **Status:** ⬜ planned ·
+**Milestone:** [Video playback](../../milestones.md#video-playback-) (G16) · **Status:** ⬜ planned ·
 **Depends on:** [M7 audio](../audio.md) (buses, generator voices), [GPU resources](../gpu-resources.md) (upload queue,
 deletion queue), [M8 game UI](../game-ui.md) (`engine://` textures), [Native libraries](../natives.md) (if the chosen
-decoder is native) · **Related:** [Game export](../game-export.md) (G5), [World-space UI](world-space-ui.md) (G11: GPU
+decoder is native) · **Related:** [Game export](../game-export.md) (G5), [World-space UI](../world-space-ui.md) (G11: GPU
 textures on meshes), [Accessibility](accessibility.md) (G14: subtitles), [Mobile core](mobile.md) (M12),
 [Consoles](consoles.md), [Rendering backend abstraction](rendering-backend-abstraction.md) (M11)
 
@@ -465,7 +465,7 @@ management, and it is unavailable on MoltenVK and lavapipe; the engine targets V
 - [Asset pipeline](../asset-pipeline.md): importers, `.mfmeta`; [Native libraries](../natives.md): shims, CI, licences
 - [Project and GameHost](../project-and-gamehost.md): `loading` section, headless host
 - Gameplay toolkit siblings: [Game export](../game-export.md) (G5), [Save games and settings](save-and-settings.md)
-  (G4: user volume), [World-space UI](world-space-ui.md) (G11: external textures),
+  (G4: user volume), [World-space UI](../world-space-ui.md) (G11: external textures),
   [Haptics and input glyphs](input-haptics-and-glyphs.md) (G12: skip glyph), [Accessibility](accessibility.md) (G14:
   captions)
 - [Mobile core](mobile.md) (M12), [Consoles](consoles.md),

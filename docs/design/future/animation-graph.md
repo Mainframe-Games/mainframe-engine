@@ -1,6 +1,6 @@
 # Proposal: Animation graph (state machines, blend spaces, layers)
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G17f; 3D adoption with G1b) · **Status:** ⬜
+**Milestone:** [2D skeletal animation](../../milestones.md#2d-skeletal-animation-) (G17f; 3D adoption with G1b) · **Status:** ⬜
 planned · **Depends on:** [2D skeletal animation](skeleton-2d.md) (G17a: `AnimationTracks`, `SkeletonSprite2D`),
 [Skeleton editor](skeleton-2d-editor.md) (G17c: Animate mode, preview) · **Related:**
 [Keyframe animation](../animation.md) (G1a `AnimationPlayer`, G1b `Skeleton3D`; this is the "later proposal" its

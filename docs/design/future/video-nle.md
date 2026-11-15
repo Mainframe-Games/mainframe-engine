@@ -1,7 +1,7 @@
 # Proposal: Video mode as a multi-track timeline editor
 
 **Status:** accepted (owner, 2026-11-04); G20a–G20d and G20.2 built (2026-11-05, [Video editing mode](../video-editor.md)); G20.3 is later
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G20a–G20d, G20.2, G20.3)
+**Milestone:** [Video editor](../../milestones.md#video-editor-) (G20a–G20d, G20.2, G20.3)
 **Decision:** [ADR 0241](../../../memory/decisions/0241-video-mode-nle.md), which partly supersedes
 [ADR 0191](../../../memory/decisions/0191-video-editing-mode.md)
 **Depends on:** [Video editing mode](../video-editor.md) (today's mode, whose library this reuses),
@@ -574,5 +574,5 @@ the owner can overrule them:
 - [ADR 0241](../../../memory/decisions/0241-video-mode-nle.md) (this decision), [ADR 0191](../../../memory/decisions/0191-video-editing-mode.md)
   (today's mode), ADR 0190 (ffmpeg as a child process)
 - [Video editing mode](../video-editor.md), [Gameplay recording](../recording.md), [Editor](../editor.md),
-  [Game export](../game-export.md), [Protected exports](protected-exports.md) (G19, the pack writer's exclusion),
+  [Game export](../game-export.md), [Protected exports](../protected-exports.md) (G19, the pack writer's exclusion),
   [Video playback](video-playback.md) (G16, not used here)

@@ -1,6 +1,6 @@
 # World-space UI and 3D text
 
-**Milestone:** [Gameplay toolkit](../milestones.md#gameplay-toolkit-) (G11) · **Status:** ✅ G11.1–G11.9 shipped; the
+**Milestone:** [Player UI, input and accessibility](../milestones.md#player-ui-input-and-accessibility-) (G11) · **Status:** ✅ G11.1–G11.9 shipped; the
 proposal moved here (its changes are in [Changes from the proposal](#changes-from-the-proposal)) · **Decisions:**
 [ADR 0200](../../memory/decisions/0200-label3d-first-slice.md) (first `Label3D`),
 [ADR 0216](../../memory/decisions/0216-viewport-textures-on-3d-materials.md) (sub-viewport textures on meshes),
