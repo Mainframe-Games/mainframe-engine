@@ -31,6 +31,7 @@ just publish-local    # package the editor like the release workflow (artifacts/
 just export [args]    # mf-export: a game's export presets from project.mfproj (--preset, --all, --list, --pack-list; G5, docs/design/game-export.md)
 just export-smoke     # the Demo exported packed (Assets.mfpak) vs its loose Release build, screenshots compared (needs a display, magick)
 just l10n-check       # committed .mo files match their .po (CI runs it)
+just mfe <group> …    # mfe, the engine/editor CLI, in the current directory (G1c: `mfe anim rig|poses|bake|describe|check|list`)
 just l10n-engine      # the engine's own strings (settings menu, input names) → Assets/UI/settings/settings.pot
 just docs             # the docs site (Astro Starlight, docs-site/) with live reload; just docs-build = the Pages build
 ```
@@ -144,7 +145,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `HumanoidLimits`, `HumanoidPoses`); `Authoring/` (G1.13, ADR 0282: `PoseScript` + `PoseScriptParser`, `TwoBoneIk`,
   `PoseBaker` (sparse cubic keys, refinement), `ClipSampler`, `AnimationHash` → `Animation.BakedHash`, `PoseLibrary`
   (library `.mfres` write and the `.mfmeta` `libraries` link the importer reads); G1.14: `ClipDescriber` (clips read back
-  in canonical terms), `PoseEditScript` + `PoseScriptParser.ParseEdit`, `PoseEditor` (edits on top of the keys), `TrackKeys`);
+  in canonical terms), `PoseEditScript` + `PoseScriptParser.ParseEdit`, `PoseEditor` (edits on top of the keys), `TrackKeys`; G1.15: `AnimationChecks` (ground, foot slide, range, flips,
+  spikes, loop, start/end, root, physics; `AnimationCheckReport`, named tolerances));
   `Scene/Nodes3D/{Skeleton3D,Skin,BoneAttachment3D}.cs`; compute pre-skinning in `Rendering/Meshes/MeshSkinning.cs`; skinned
   glTF/FBX import (ADR 0208). See `docs/design/animation.md`
 - `MainframeEngine/Src/Rendering/Resources/`, `Rendering/Meshes/` — `Mesh`/primitives, `StandardMaterial3D`, `Texture2D`;
@@ -239,6 +241,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   the cut editor, `ClipTools` and the Transcript tab: Cutback's tools on a clip, transcripts cached as
   `<media>.mftranscript.json`; G20.2's titles (`TitleRasterizer`, CPU rasters through `Font.RenderLine`), transitions,
   fades, speed and captions) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
+- `Tools/MainframeEngine.Cli/` — `mfe`, the engine/editor CLI (`MfeCli`, `MfeProject`; `anim` commands for G1c animation
+  authoring, docs/design/animation.md#the-mfe-cli)
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Tools/MainframeEngine.Export/` + `.Export.Cli/` — the shared game `ExportRunner` (File › Export in the editor) and `mf-export`
   (presets in `project.mfproj`, publish, macOS bundle/signing, archives, `nativeAot`; replaces `package-game.sh`; ADRs
