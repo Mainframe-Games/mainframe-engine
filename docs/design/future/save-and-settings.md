@@ -1,6 +1,6 @@
 # Proposal: Save games and settings
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G4) · **Status:** ✅ shipped (see
+**Milestone:** [Shipping games](../../milestones.md#shipping-games-) (G4) · **Status:** ✅ shipped (see
 [As built](#as-built)) ·
 **Depends on:** [M10 projects](../project-and-gamehost.md) (`GameHost`, `project.mfproj`), [M8 game UI](../game-ui.md)
 (widget library, data binding), [M7 audio](../audio.md) (buses), [M9 localization](../localization.md) ·

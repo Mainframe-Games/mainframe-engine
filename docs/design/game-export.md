@@ -1,6 +1,6 @@
 # Game export — File › Export, presets, mf-export
 
-**Milestone:** [Gameplay toolkit](../milestones.md#gameplay-toolkit-) (G5) · **Status:** ✅ shipped ·
+**Milestone:** [Shipping games](../milestones.md#shipping-games-) (G5) · **Status:** ✅ shipped ·
 **Decisions:** [ADR 0229](../../memory/decisions/0229-export-runner-in-csharp.md) (runner, library, format 5, spike
 outcomes), [ADR 0230](../../memory/decisions/0230-export-open-questions.md) (the open questions) · **Related:**
 [Release → Games](release.md#games), [Editor → Export](editor.md#export), [Project and GameHost](project-and-gamehost.md),

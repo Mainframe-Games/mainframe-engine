@@ -3,7 +3,12 @@
 Roadmap for Mainframe Engine. Each row links to a design doc: completed features link to the
 current-state doc, and future features link to a proposal in [`design/future/`](design/future/).
 
-**Legend:** ✅ done · 🚧 in progress · ⬜ planned
+The gameplay toolkit, the features most games need, is a set of small milestones (3D animation through Video editor)
+whose rows keep their G numbers ([ADR 0283](../memory/decisions/0283-gameplay-toolkit-split-into-milestones.md)). They
+do not depend on M11–M13 or on each other except where a section says so, so they can be interleaved, and the owner
+can skip any row, or a whole milestone, that the games do not need.
+
+**Legend:** ✅ done · 🚧 in progress · ⬜ planned · ⏭ skipped (not needed for now; its proposal stays)
 
 ```mermaid
 flowchart LR
@@ -28,10 +33,30 @@ flowchart LR
     M8 --> M12
     M11 -. "optional (native Metal later)" .-> M12
     M12 --> M13["M13 Mobile platform services"]
-    M10 --> GT["Gameplay toolkit"]
+    subgraph GT["Gameplay toolkit (any order, each skippable)"]
+        ANIM["3D animation 🚧"]
+        SPR["2D sprites and tile maps ✅"]
+        NAV["Navigation ✅"]
+        SHIP["Shipping games ✅"]
+        REN["Rendering ✅"]
+        DEV["Developer tools ✅"]
+        WORLD["World building 🚧"]
+        SHOW["Showcases 🚧"]
+        PHYS["Physics and paths ✅"]
+        PUI["Player UI, input and accessibility 🚧"]
+        VPLAY["Video playback ⬜"]
+        SKEL["2D skeletal animation ⬜"]
+        VED["Video editor 🚧"]
+        ANIM -. "skeletons → ragdolls" .-> PHYS
+        ANIM -. "timeline, animation graph" .-> SKEL
+        REN --> WORLD
+        WORLD --> SHOW
+        SHIP -. "settings" .-> PUI
+    end
+    M10 --> GT
     M3 --> GT
-    GT -. "G4 saves → cloud saves, G5 presets → mobile export" .-> M13
-    GT --> G8["G8 World: terrain, trees, water, forest showcase"]
+    SHIP -. "saves → cloud saves" .-> M13
+    SHIP -. "export presets → mobile export" .-> M12
     M11 -. "D3D12 base, GPU API" .-> CON["Consoles (PS5 + Xbox Series), after program access"]
     M12 -. "seams, AOT, cook" .-> CON
 ```
@@ -50,7 +75,19 @@ flowchart LR
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
 | [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ✅ |
-| [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, Claude-authored animation, 2D skeletal animation, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools, terrain/trees/water and a forest showcase, joints and ragdolls, a frame profiler, world-space UI, haptics and input glyphs, paths, accessibility, crash reports, video | ⬜ |
+| [3D animation](#3d-animation-) | Keyframe animation, glTF skinning, Claude-authored clips (`mfe anim`), root motion; posing tools and non-humanoid rigs (G1) | 🚧 |
+| [2D sprites and tile maps](#2d-sprites-and-tile-maps-) | Animated sprites, tile maps (G2) | ✅ |
+| [Navigation](#navigation-) | 2D/3D grids and navigation meshes, agents, avoidance, async queries (G3) | ✅ |
+| [Shipping games](#shipping-games-) | Save games and settings, export from the editor, protected exports (G4, G5, G19) | ✅ |
+| [Rendering](#rendering-) | PBR, 3D particles, LOD, decals, SSAO, Slang surface shaders (G6, G18) | ✅ |
+| [Developer tools](#developer-tools-) | Editor viewport tools, frame profiler, crash reports (G7, G10, G15) | ✅ |
+| [World building](#world-building-) | Terrain, procedural trees, water (G8a–G8c) | 🚧 |
+| [Showcases](#showcases-) | The Forest and its visual quality pass, Neon (G8d, G8e) | 🚧 |
+| [Physics and paths](#physics-and-paths-) | Joints, ragdolls, paths (G9, G13) | ✅ |
+| [Player UI, input and accessibility](#player-ui-input-and-accessibility-) | World-space UI, haptics and input glyphs, accessibility (G11, G12, G14) | 🚧 |
+| [Video playback](#video-playback-) | Video in games (G16) | ⬜ |
+| [2D skeletal animation](#2d-skeletal-animation-) | Engine-owned 2D skeletons, the Skeleton tab, constraints, animation graph (G17) | ⬜ |
+| [Video editor](#video-editor-) | The editor's Video mode, a timeline editor (G20) | 🚧 |
 | [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, D3D12 (Windows), WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -281,54 +318,124 @@ the Project Manager. Order: D1 → D2 → D3 → D4.
 | D3 Project icons in the Project Manager (`window.icon`, template default icon, RmlUi absolute-path fix) | ✅ | [Project icons](design/future/project-icons.md) |
 | D4 "Download Demo Project" (release zip asset, download + extract + engine-path rewrite) | ✅ | [Demo download](design/future/demo-download.md) |
 
-## Gameplay toolkit ⬜
+## 3D animation 🚧
 
-The features most games need that the engine does not have yet. Not numbered: these are independent of M11–M13 and can
-be interleaved with them. Recommended order: G1a → G2 → G3a → G4 → G5, with G1b, G3b, G6 and G7 slotted in as needed.
-Character animation goes Claude-first: G1a core (G1.1–G1.4) → G1b → G1c + G1e → the G1a panel → G1d → G1f.
-2D skeletal animation (G17, [ADR 0184](../memory/decisions/0184-engine-owned-2d-skeletal-animation.md)) goes runtime
-first: G17a → G17b → G17c → G17d, with G17e alongside G17c/G17d, then G17f and G17g; G17b builds on the shared
-timeline G1a extracted.
-G4 lays the storage that M13 cloud saves extend; G5 lays the export presets that M12.7 extends. G6 depends on the
-"Vulkan now or after M11" decision in its proposal.
-G8 (world building) goes G8a Faceted terrain → G8b low-poly trees (both on today's Blinn-Phong renderer) → G6.1/G6.2
-→ G8a Realistic profile and G8b realistic trees → G8c water → G8d rendering phases → the forest showcase
-([ADR 0149](../memory/decisions/0149-terrain-trees-water-engine-features.md)) → G8e, the forest's "Unreal look" in eight
-phases ([ADR 0164](../memory/decisions/0164-forest-visual-quality-plan.md)).
-G9–G16 are smaller, independent additions. G10 (profiler) and G15 (crash reports) help every other item and can go first;
-G9's ragdolls and G13 wait on G1b skeletons only for the parts that need bones; G12's rebinding glyphs and G14's
-settings plug into G4; G16 needs its codec dependency approved before any work starts.
+Keyframe animation, glTF skinning and Claude-first character animation. Order: G1a core (G1.1–G1.4) → G1b → G1c +
+G1e → the G1a panel → G1d → G1f. What is left is for hand-posing in the editor (G1d) and for rigs that are not humanoid
+(G1f); skip either if clips come from `mfe anim` and the characters are humanoids.
 
 | Feature | Status | Design doc |
 |---|---|---|
 | G1a Keyframe animation: `Animation` resource (property, transform, method tracks), `AnimationPlayer`, editor Animation panel (timeline) | ✅ value, bezier, method and audio tracks, cubic, the Animation panel on the shared timeline (ADRs 0207, 0244) | [Animation and skinning](design/animation.md) |
 | G1b glTF skeletons, skinning (GPU) and animation clips played through `AnimationPlayer` | ✅ (ADR 0207, 0208) | [Animation and skinning](design/animation.md) |
-| G1c Animation authoring: humanoid map, pose scripts baked to keys, `mfe` CLI (`anim rig/bake/describe/check/render`), editor reload of changed resources, `animate` Claude Code skill | ⬜ (would also let active ragdolls follow any clip) | [Animation authoring](design/future/animation-authoring.md) |
+| G1c Animation authoring: humanoid map, pose scripts baked to keys, `mfe` CLI (`anim rig/bake/describe/check/render`), editor reload of changed resources, `animate` Claude Code skill | ✅ G1.12–G1.19 (ADRs 0281, 0282): humanoid map, pose scripts and baker, describe and edit scripts, checks, `mfe anim` (rig, poses, bake, describe, check, list, render), contact sheets, editor reload and instanced preview, the `animate` Claude Code skill; `mfe` in the NuGet package not yet | [Animation authoring](design/future/animation-authoring.md) |
 | G1d Character animation editing: bones in the viewport, IK handles, curve view, onion skinning | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
 | G1e Root motion: `AnimationPlayer` root motion track, `CharacterBody3D.ApplyRootMotion` | ✅ (ADR 0210; the baker's `root: "motion"` waits for G1c) | [Animation and skinning](design/animation.md#root-motion) |
 | G1f Non-humanoid rigs (native bone channels, rig profiles) and auto-rigging | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
+
+## 2D sprites and tile maps ✅
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G2a Animated sprites: sprite sheet slicing, `SpriteFrames`, `AnimatedSprite2D` | ✅ (ADR 0223, 0224) | [Animated sprites](design/animated-sprites.md) |
 | G2b Tile maps: `TileSet`, tile map layer node (chunked rendering + physics), paint tools in the 2D view | ✅ (ADR 0225, 0226) | [Tile maps](design/tile-maps.md) |
+
+## Navigation ✅
+
+2D grids first (G3a), then avoidance, 2D navigation meshes, async queries and 3D (G3b).
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G3a Navigation 2D: grid A* and point graphs, `NavigationServer2D`, `NavigationAgent2D`, editor bake + debug overlay (G3.1–G3.5), tile map source (G3.6) | ✅ (ADR 0227, 0228) | [Navigation](design/navigation.md) |
 | G3b Later: avoidance, 2D navmesh polygons, async queries, 3D grid + `NavigationAgent3D`, 3D navmesh baking (G3.7–G3.12) | ✅ G3.7 avoidance (ADR 0250); G3.8 grid polish closed as not needed (owner, 2026-11-07); G3.9 2D navigation meshes (ADR 0261); G3.10 async queries (ADR 0262); G3.11 3D grids and `NavigationAgent3D` (ADR 0263); G3.12 3D navigation meshes on DotRecast (ADR 0264) | [Navigation](design/navigation.md#3d-navigation-meshes-g312), [later phases](design/navigation.md#changes-from-the-proposal) |
+
+## Shipping games ✅
+
+What a game needs to ship: saves and settings, an export button, protected content. G4 lays the storage that M13 cloud
+saves extend; G5 lays the export presets that M12.7 extends.
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G4 Save games and settings: `SaveServer` (slots, versioned JSON + migrations, durable writes, recovery, thumbnails, cloud seam), `UserSettings`/`ConfigFile`, rebinding, drop-in settings menu | ✅ | [Save games and settings](design/future/save-and-settings.md) |
 | G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner (`mf-export`) | ✅ | [Game export](design/game-export.md) |
+| G19 Protected exports: `IContentFileSystem` for every runtime content read, `Assets.mfpak` packs (deterministic, Brotli, seekable stored media), AES-256-CTR encryption with a per-project key compiled into the game, then a `nativeAot` preset key | ✅ | [Protected exports](design/protected-exports.md); phase 1 (content file system), phase 2 (`Assets.mfpak` packs, [ADR 0247](../memory/decisions/0247-pack-anchors-for-steampipe.md)), phase 3 (AES-256-CTR encryption, the project's `packKey`) and phase 4 (NativeAOT exports: the engine trim- and AOT-clean, Steam compiled in, native crash symbols; ADRs 0259/0260) ✅; CI exports NativeAOT per OS |
+
+## Rendering ✅
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G6 Rendering features: PBR (metallic/roughness + IBL), 3D particles, LOD, decals, SSAO | ✅ (ADRs 0150, 0165, 0206, 0245, 0246); PBR is the default shading, old content keeps Blinn-Phong through migrations (ADR 0255); generated LODs through meshoptimizer, `Native/MeshOpt` (ADR 0256) | [Rendering features](design/rendering-features.md), [3D particles](design/particles-3d.md) |
+| G18 Slang surface shaders: game shaders are `.slang` files against `import mainframe.spatial;`/`mainframe.canvas;` (entry functions over camelCase built-in structs, `struct Material` read through slangc's reflection, literal defaults), the engine generating every pass; the Godot front end removed, the 19 in-repo shaders ported | ✅ (ADR 0237) | [Shaders → Surface shaders](design/shaders.md#surface-shaders) |
+
+## Developer tools ✅
+
+Tools that help every other milestone, so they went early.
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G7 Editor viewport tools: range handles, Save as .mfres / Make unique, box selection, multi-node gizmo, simulate mode | ✅ | [Editor → Viewport tools](design/editor.md#viewport-tools) |
+| G10 Frame profiler: zero-allocation CPU scopes, GPU timestamp queries per pass, dev overlay panel, trace export, editor Profiler panel | ✅ (ADR 0219, 0220) | [Frame profiler](design/profiler.md) |
+| G15 Crash reporting: managed and native crash capture, report bundle with recent logs and GPU info, next-launch dialog, editor capture of game crashes | ✅ | [Crash reporting](design/crash-reporting.md) |
+
+## World building 🚧
+
+G8a Faceted terrain → G8b low-poly trees (both on the Blinn-Phong renderer) → G6.1/G6.2 → G8a Realistic profile and
+G8b realistic trees → G8c water ([ADR 0149](../memory/decisions/0149-terrain-trees-water-engine-features.md)). Each
+row lists what is not built yet.
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G8a Terrain: `Terrain3D` + `TerrainData` (image layers, chunks, queries, collision), Faceted and Realistic (splat PBR) profiles, Terrain dock (sculpt, paint, foliage, objects, water), `MultiMesh` scatter | 🚧 core, Realistic look, foliage scatter ✅; viewport-tool API and Terrain dock: create, sculpt, paint, water, foliage, objects ✅ (ADR 0270); Faceted `TerrainMaterial3D` ✅; painted foliage density ✅; object scatter (`Nodes` mode) and the Objects mode ✅ ([ADR 0273](../memory/decisions/0273-terrain-objects-list-and-nodes.md)). Not built: sub-rectangle texture uploads (G8a.1/G8a.15), the foliage build radius (G8a.8), the objects' `MultiMesh` mode (dropped: forests are `TreeScatter`'s, ADR 0274), `CollisionMode.NearBodies` (G8a.13), layer thumbnails in the dock (G8a.15), Realistic grass's distance shrink (G8a.16) ⬜ | [Terrain](design/terrain.md), [proposal](design/future/terrain.md) |
 | G8b Procedural trees: Ez Tree port (`TreeGenerator`, `Tree3D`, 15 presets), LowPoly and Realistic styles, `FoliageMaterial3D` wind, impostors | ✅ G8b.1–G8b.7: the port, options and presets, LowPoly and Realistic, `Tree3D` and Bake, the inspector ([ADR 0271](../memory/decisions/0271-tree-inspector-bake-staleness.md)), wind and `FoliageMaterial3D`, impostors (G8e.5, ADR 0172), Bake Variants into colliding tree scenes and a terrain scatter type ([ADR 0274](../memory/decisions/0274-tree-variants-and-scatter-scenes.md)); not built: `RuntimeGeneration` modes, impostors on `Tree3D` and in the bake, the trellis ([Procedural trees → Not yet](design/procedural-trees.md#not-yet)) | [Procedural trees](design/procedural-trees.md) |
 | G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | 🚧 ponds, streams, carving, the water material, scene textures, SSR, falls ✅; river editing and carving in the editor (G8c.4) ✅ (ADR 0272); pond joins and plunge pools, the Faceted water look, river audio, underwater shading ⬜ | [Water](design/water.md), [proposal](design/future/water.md) |
+
+## Showcases 🚧
+
+Example games that prove the features together. The Forest (G8d) builds on [World building](#world-building-); G8e is
+its "Unreal look" in eight phases ([ADR 0164](../memory/decisions/0164-forest-visual-quality-plan.md)), with the frame
+budget and the owner's sign-offs still open.
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G8d Forest showcase: `Examples/Forest` first-person walk, physical sky, fog and light shafts, TAA, auto exposure, grading | ✅ G8d.1–G8d.8 (physical sky, height fog, auto exposure, FXAA and the LUT, PCSS, shafts, contact shadows, TAA), the project, controller, valley, vegetation and props, audio, look and reference shots, `--benchmark` and `--autowalk`, the release zip and the editor's example picker, and `forest-mini` goldens on both drivers (G8d.15); not built: a CI step for `Forest.Tests`, `build/forest-smoke.sh`, self-contained player zips, butterflies | [Forest](design/forest.md) |
-| Neon showcase: `Examples/Neon` cyberpunk apartment (interactables, live monitors and terminal, instanced neon city, traffic on paths, synthesised audio) | ✅ (ADR 0218) | [Neon](design/neon.md) |
 | G8e Forest visual quality (the Unreal look): baked probe GI with GTAO, cached soft shadows, volumetric light, cinematic post, Ez Tree cluster foliage and impostors, water SSR/refraction/falls, art pass, TAA upscaling | 🚧 all eight phases built and merged: G8e.1 probe GI ([ADR 0170](../memory/decisions/0170-light-probe-volume.md)) with the indirect-light view and probe overlay (0275), G8e.2 shadows (0167, 0179), G8e.3 volumetric fog (0171) with a Medium tier (0276), G8e.4 cinematic post (0168) with the glow map (0277), G8e.5 Ez Tree foliage and impostors (0172) with grass gusts (0278), G8e.6 water (0173) with probe-occluded sky reflections (0279), G8e.7 art pass (0175, look-dev 0177–0181), G8e.8 TAAU (0174); [changes from the proposal](design/forest.md#visual-quality-g8e). Open (owner): the frame budget (a quiet-machine `forest-bench` at 1440p and an RTX 3060 run; ≈ 21 ms at 1440p on a busy base M5, target 14 ms), sign-off of each phase's shots; not built: wet banks, `rendering.sceneTextures`, `FarShadowResolution`, `rendering.probes` levels, visibility-range fade margins on every node, impostors on `Tree3D`, the macro texture's distant shading | [Forest → Visual quality](design/forest.md#visual-quality-g8e) |
+| Neon showcase: `Examples/Neon` cyberpunk apartment (interactables, live monitors and terminal, instanced neon city, traffic on paths, synthesised audio) | ✅ (ADR 0218) | [Neon](design/neon.md) |
+
+## Physics and paths ✅
+
+G9's ragdolls build on G1b skeletons.
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G9 Physics joints and ragdolls: 3D/2D joint nodes over Jitter2 and Box2D (limits, motors, springs, breaking), anchor gizmos, ragdolls on G1b skeletons | ✅ | [Physics joints and ragdolls](design/physics-joints.md) (ADR 0211, 0212, 0234, 0235): G9.1–G9.9 (G9.7: limit handles in the viewport); G9.10a `MotorJoint2D`, G9.10b `Generic6DofJoint3D`, G9.10c active ragdolls |
-| G10 Frame profiler: zero-allocation CPU scopes, GPU timestamp queries per pass, dev overlay panel, trace export, editor Profiler panel | ✅ (ADR 0219, 0220) | [Frame profiler](design/profiler.md) |
+| G13 Paths: `Path3D`/`PathFollow3D` and 2D equivalents on `Curve3D`, baked arc length, curve editing gizmos | ✅ (ADR 0215, 0242, 0243) | [Paths](design/paths.md) |
+
+## Player UI, input and accessibility 🚧
+
+Independent rows. G12's rebinding glyphs and G14's settings plug into G4's settings.
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G11 World-space UI: `Label3D`, UI anchored to 3D points (nameplates, markers), RmlUi panels rendered onto meshes with ray-picked input | ✅ G11.1–G11.9 (multi-line `Label3D` with fallbacks and fixed size, drawn by a batched text renderer; `UiMarker3D` markers; `UiPanel3D` panels rendered before the scene with mouse, crosshair, manual and mesh input; opt-in `IgnoreExposure`; panels with stand-in data in the editor; Demo terminal; ADRs 0251–0254, 0257, 0258) | [World-space UI](design/world-space-ui.md) |
 | G12 Gamepad haptics and input glyphs: rumble, controller type and last-used device, action → glyph for RmlUi and canvas text | ⬜ (the proposal awaits owner review) | [Haptics and input glyphs](design/future/input-haptics-and-glyphs.md) |
-| G13 Paths: `Path3D`/`PathFollow3D` and 2D equivalents on `Curve3D`, baked arc length, curve editing gizmos | ✅ (ADR 0215, 0242, 0243) | [Paths](design/paths.md) |
 | G14 Accessibility: UI scale, colour-vision filters, subtitles and captions, motion comfort options, input assists | ⬜ | [Accessibility](design/future/accessibility.md) |
-| G15 Crash reporting: managed and native crash capture, report bundle with recent logs and GPU info, next-launch dialog, editor capture of game crashes | ✅ | [Crash reporting](design/crash-reporting.md) |
+
+## Video playback ⬜
+
+Video in games. Its codec dependency needs approval before any work starts.
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G16 Video playback: `VideoStream`, `VideoPlayer`, `VideoTexture`, GPU YUV conversion, audio through `AudioServer` (codec choice pending) | ⬜ | [Video playback](design/future/video-playback.md) |
+
+## 2D skeletal animation ⬜
+
+Engine-owned 2D skeletons ([ADR 0184](../memory/decisions/0184-engine-owned-2d-skeletal-animation.md)), runtime first:
+G17a → G17b → G17c → G17d, with G17e alongside G17c/G17d, then G17f and G17g. G17b builds on the shared timeline G1a
+extracted; G17f's animation graph is shared with 3D. Until this ships, `SpineNode` covers 2D skeletal animation.
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G17a 2D skeletal runtime: `.mfskel`/`.mfanim` data, bake cache, SoA pose, weighted meshes, skins, `AnimationTracks` mixing, events, `SkeletonSprite2D`, compute skinning, canvas skinned commands and blend modes, Spine 4.x JSON importer | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
 | G17b Skeleton tab, Setup mode: `IDocumentTab`, shared `Timeline/` (song tab moved onto it), hierarchy, bones, slots, skins, PNG import | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |
 | G17c Skeleton tab, Animate mode: dopesheet, graph editor, auto-key, IK posing, pose mirror, onion skin, mix preview, audio | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |
@@ -336,8 +443,13 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G17e IK, transform, path and physics constraints; clipping and path attachments | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
 | G17f Animation graph: state machines, 1D/2D blend spaces, masked layers (shared with 3D), graph tab | ⬜ | [Animation graph](design/future/animation-graph.md) |
 | G17g `SkeletonSprite3D`, bone attachments, hitboxes, network sync, `AnimationPlayer` bridge, `mfe skel` + Claude skill, Demo scene | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
-| G18 Slang surface shaders: game shaders are `.slang` files against `import mainframe.spatial;`/`mainframe.canvas;` (entry functions over camelCase built-in structs, `struct Material` read through slangc's reflection, literal defaults), the engine generating every pass; the Godot front end removed, the 19 in-repo shaders ported | ✅ (ADR 0237) | [Shaders → Surface shaders](design/shaders.md#surface-shaders) |
-| G19 Protected exports: `IContentFileSystem` for every runtime content read, `Assets.mfpak` packs (deterministic, Brotli, seekable stored media), AES-256-CTR encryption with a per-project key compiled into the game, then a `nativeAot` preset key | ✅ | [Protected exports](design/protected-exports.md); phase 1 (content file system), phase 2 (`Assets.mfpak` packs, [ADR 0247](../memory/decisions/0247-pack-anchors-for-steampipe.md)), phase 3 (AES-256-CTR encryption, the project's `packKey`) and phase 4 (NativeAOT exports: the engine trim- and AOT-clean, Steam compiled in, native crash symbols; ADRs 0259/0260) ✅; CI exports NativeAOT per OS |
+
+## Video editor 🚧
+
+The editor's Video mode, a timeline editor inside the game project ([ADR 0241](../memory/decisions/0241-video-mode-nle.md)).
+
+| Feature | Status | Design doc |
+|---|---|---|
 | G20a Video NLE, engine prerequisites: `SceneTree.FilesDropped` (OS drag-drop), `Assets/Video` editor-only (never built or exported), recordings into the project, in-place canvas texture updates | ✅ (2026-11-04) | [Video NLE](design/future/video-nle.md) (ADR 0241) |
 | G20b Video NLE, timeline library: `.mftimeline` model, edits (razor, trim, ripple, link), snapping, multi-input export graph and presets | ✅ (2026-11-04) | [Video NLE](design/future/video-nle.md) |
 | G20c Video NLE, the editor: Resolve-style Edit page (media pool, Source and Timeline viewers, Inspector, multi-track timeline, cut editor), import and drop, reframe, Premiere keys, export presets | ✅ (2026-11-05) | [Video editing mode](design/video-editor.md), [Video NLE](design/future/video-nle.md) |
@@ -415,4 +527,7 @@ in private repositories ([ADR 0143](../memory/decisions/0143-console-strategy.md
 ---
 
 *Updating this file:* flip a row to 🚧 when work starts and to ✅ when it merges. When a proposal ships,
-move its content into the matching current-state doc in `design/` and repoint the row's link there.
+move its content into the matching current-state doc in `design/` and repoint the row's link there. A row the owner
+decides is not needed becomes ⏭ with the date and the reason, e.g. "⏭ skipped (owner, 2026-11-15): no hand-posing
+needed"; its proposal stays, and un-skipping is flipping it back to ⬜. A milestone is ✅ when each of its rows is ✅ or
+⏭, and ⏭ when every row is ⏭.

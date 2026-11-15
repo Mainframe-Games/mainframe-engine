@@ -1,6 +1,6 @@
 # Proposal: Skeleton editor (the Skeleton tab)
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G17b Setup mode, G17c Animate mode, G17d meshes
+**Milestone:** [2D skeletal animation](../../milestones.md#2d-skeletal-animation-) (G17b Setup mode, G17c Animate mode, G17d meshes
 and weights, plus the editor parts of G17e–G17f) · **Status:** ⬜ planned · **Depends on:**
 [2D skeletal animation](skeleton-2d.md) (G17a runtime and data), [Editor](../editor.md) (tabs, undo, FileSystem),
 the song tab ([Editor → Song tab](../editor.md#song-tab-music-editor)), whose timeline this extracts · **Related:**

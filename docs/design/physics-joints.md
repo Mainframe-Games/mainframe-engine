@@ -1,6 +1,6 @@
 # Physics joints and ragdolls
 
-The current state of G9 ([milestones](../milestones.md#gameplay-toolkit-)): joint nodes over Jitter2 (3D) and Box2D
+The current state of G9 ([milestones](../milestones.md#physics-and-paths-)): joint nodes over Jitter2 (3D) and Box2D
 (2D) with limits, motors, springs and breaking; their debug draw and editor gizmo; rigid-part ragdolls
 (`Ragdoll3D`); skeleton ragdolls (`PhysicalBone3D`, `PhysicalBoneSimulator3D`) and the editor's Create physical
 skeleton; limit handles in the editor's viewport (G9.7); `MotorJoint2D` (G9.10a); `Generic6DofJoint3D` on the engine's

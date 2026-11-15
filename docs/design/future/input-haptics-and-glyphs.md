@@ -1,6 +1,6 @@
 # Proposal: Gamepad haptics and input glyphs
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G12) · **Status:** ⬜ planned ·
+**Milestone:** [Player UI, input and accessibility](../../milestones.md#player-ui-input-and-accessibility-) (G12) · **Status:** ⬜ planned ·
 **Depends on:** [M10 projects](../project-and-gamehost.md) (`InputMap`, `project.mfproj`), [M8 game UI](../game-ui.md)
 (RmlUi documents, data models), [M9 localization](../localization.md), [G4 rebinding](save-and-settings.md#key-rebinding)
 (`InputDeviceClass`, binding slots, `DisplayName()`, `UserSettings`) ·

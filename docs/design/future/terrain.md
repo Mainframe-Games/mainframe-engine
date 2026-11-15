@@ -1,6 +1,6 @@
 # Proposal: Terrain (Terrain3D, sculpt and paint tools, scatter, faceted and realistic profiles)
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G8a) · **Status:** ⬜ planned ·
+**Milestone:** [World building](../../milestones.md#world-building-) (G8a) · **Status:** ⬜ planned ·
 **Depends on:** [M6 physics](../physics.md) (trimesh collision), [M10 editor](../editor.md) (viewport, undo, save);
 the Realistic profile also on [Rendering features](../rendering-features.md) G6.1/G6.2 (PBR, IBL; Blinn-Phong fallback
 until then) and G6.4 (index-only LODs) · **Related:** [Procedural trees](../procedural-trees.md) (G8b:
