@@ -430,6 +430,7 @@ the current directory; a game project runs `dotnet run --project <engine checkou
 | `mfe anim describe <library> <clip> --model <m> [--times 0.2,0.4]` | `ClipDescriber` in text. |
 | `mfe anim check <library> <clip> --model <m> [--root inPlace\|motion] [--start <pose>] [--end <pose>] [--tolerance …]` | `AnimationChecks`. |
 | `mfe anim list <library>` | Each clip's length, loop, tracks, keys and whether it is an untouched bake. |
+| `mfe anim render <library> <clip> --model <m> -o <png> [--frames n] [--views …] [--size px] [--frame t] [--flat]` | A contact sheet ([below](#contact-sheets-g1c)). Takes `check`'s `--root`, `--start`, `--end` and `--tolerance` for its report. |
 
 - **Project:** `--project <dir>`, else the nearest `project.mfproj` above the working directory. A run points
   `ContentPaths.ProjectDirectory` and `AssetDatabase.Current` at it and restores both. Models and libraries are project
@@ -440,6 +441,33 @@ the current directory; a game project runs `dotnet run --project <engine checkou
   failed; 2 usage or input errors: a script error (each with its JSON path), a missing file or clip, a refused
   replace. Nothing is written on 2.
 - Unknown options are errors; `--tolerance` takes `name=value` pairs (repeatable, comma-separated).
+
+## Contact sheets (G1c)
+
+G1.17 ([animation authoring → Contact sheet rendering](future/animation-authoring.md#contact-sheet-rendering)):
+`mfe anim render` writes one picture of a clip to look at, in `Tools/MainframeEngine.Cli/ContactSheet/`.
+
+![A contact sheet of the G1.13 test jump (root motion): six key times from three views, the trajectory strip and the check report, which lists the script's real problems](../images/animation-contact-sheet.png)
+
+- **Layout** (`ContactSheetLayout`): a header (clip, model, length, loop, baked state, library, check summary), one row
+  per view (`front`, `side`, `threequarter`) and one column per frame, then the trajectory strip and the check report.
+  Frames are the times every track is keyed (refinement-only times left out, evenly thinned to 12), or `--frames n`
+  times spaced over the clip (a sampled frame's label ends in `·`), or `--frame t`: one large frame with the views side
+  by side. `--size` is the sheet's width (default 1 600 px).
+- **Cells** (`ContactSheetRenderer`, an `Engine` with a hidden window): the model on a lit ground (sun shadows, a
+  procedural sky), posed with `ClipSampler` and seen from each view in turn, captured with `CaptureFrame` a few frames
+  later; each cell renders at twice its size (at most 1 024 px high) and is box-filtered down. The engine has no
+  orthographic camera, so a 12° camera far enough away to fit 1.45× the character's height stands in; it looks along
+  the character's −forward (front), from its left (side) or from front-left and 12° above (three-quarter), centred on
+  the hips' ground position at that time, so root motion stays in frame. `--flat` gives every mesh one unshaded grey:
+  silhouettes.
+- **Strip** (`ContactSheetComposer`): hips, feet and hands heights above the ground over time at 60 Hz, the frame
+  times, and each foot's contact band (from `ClipDescriber`).
+- **Text** is drawn on the CPU (`SheetCanvas`, `Font.RenderLine`: Lato for labels, Roboto Mono for the report, the
+  report's errors in red and warnings in amber); the sheet is written with `Png.WriteRgba8`.
+- The engine's own log goes to stderr (warnings and errors only) while it renders, so `--json` stays one document.
+- **Needs a GPU and a display** (macOS: awake). Without one, `render` exits 1 naming the cause; `describe` and `check`
+  still give the numbers.
 
 ## Guide
 
@@ -471,7 +499,10 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   (a clean squat passes; the G1.13 test jump's real problems are found; a clip built to break each check reports it;
   tolerances move the thresholds) on the test character; `MfeCliTests` runs `mfe anim` in-process on a temp project (help
   and usage errors, rig and `--write-meta`, poses, bake with links and checks, exit 1 on check errors and 2 on script
-  errors, the replace guard, an edit script, describe and check with options, JSON output, restored globals).
+  errors, the replace guard, an edit script, describe and check with options, JSON output, restored globals, render's
+  option errors) and `ContactSheetLayoutTests` (frames, geometry, the canvas, a composed sheet). Render:
+  `ContactSheetTests` runs `mfe.dll` out of process on a temp project (every cell of a shaded and a `--flat` sheet
+  shows the character; `--frame` with `--json`).
 - **Editor:** `AnimationNodesTests` (warnings, icons), `AnimationEditorTests` (every undo action, key buttons and K,
   drags with snap and cancel, rubber band, method and audio keys, preview capture and restore, saving while previewing),
   `TimelineTests` (zoom around the mouse, ruler steps); the song tab's tests run on the shared timeline.

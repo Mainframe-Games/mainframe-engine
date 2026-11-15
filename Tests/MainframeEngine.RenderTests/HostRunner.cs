@@ -107,6 +107,44 @@ public static class HostRunner
                ?? throw new InvalidDataException($"Empty result from render host '{scene}'.");
     }
 
+    /// <summary>
+    /// Runs a tool from this output folder (<c>mfe.dll</c>, G1.17) in <paramref name="workingDirectory"/> with the render
+    /// hosts' display environment; returns its exit code and its stdout and stderr.
+    /// </summary>
+    public static (int ExitCode, string Output) RunTool(string dll, string workingDirectory, params string[] arguments)
+    {
+        var psi = new ProcessStartInfo(DotnetPath())
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            WorkingDirectory = workingDirectory,
+        };
+        if (OperatingSystem.IsLinux() && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SDL_VIDEODRIVER")) &&
+            !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY")))
+            psi.Environment["SDL_VIDEODRIVER"] = "x11";
+        psi.Environment[PipelineCache.DirectoryVariable] = Path.Combine(RenderTestEnvironment.ArtifactsDirectory, "pipeline-cache");
+        psi.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, dll));
+        foreach (var arg in arguments)
+            psi.ArgumentList.Add(arg);
+
+        var output = new StringBuilder();
+        using var process = new Process { StartInfo = psi };
+        process.OutputDataReceived += (_, e) => { if (e.Data is not null) lock (output) output.AppendLine(e.Data); };
+        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) lock (output) output.AppendLine(e.Data); };
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        if (!process.WaitForExit(Timeout))
+        {
+            process.Kill(entireProcessTree: true);
+            Assert.Fail($"{dll} {string.Join(' ', arguments)} timed out after {Timeout}.\n{output}");
+        }
+
+        process.WaitForExit();
+        return (process.ExitCode, output.ToString());
+    }
+
     // dotnet sets DOTNET_HOST_PATH for the processes it starts; fall back to the current muxer or PATH.
     private static string DotnetPath()
     {

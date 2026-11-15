@@ -545,7 +545,12 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
     are not kept; `just mfe` runs in the current directory so a project there is found; `rig --write-meta` goes through
     `HumanoidMap.Store`.) `Tools/MainframeEngine.Cli`, `MfeCli`, `CommandLine`, project discovery, `anim
     rig/poses/bake/describe/check/list`, `--json`, `just mfe`; add to `MainframeEngine.slnx`; CLI tests.
-17. **G1.17 Contact sheet.** `mfe anim render`: hidden-window renderer, per-cell sub-viewports and cameras, trails,
+17. ✅ **G1.17 Contact sheet.** (Built, [Animation and skinning → Contact sheets](../animation.md#contact-sheets-g1c).
+    Changes: cells are captured one after another from one hidden window the size of a cell (posed and re-aimed per
+    cell) instead of a `SubViewport` per cell; the cameras are narrow (12°) perspective ones, as the engine has no
+    orthographic camera; IK pins are not marked (scripts are not kept): contacts show in the strip's bands and the
+    shadows; trails are the strip's height curves; `--size` is the sheet's width; `render` takes `check`'s options for
+    its report; the engine's log goes to stderr while it renders.) `mfe anim render`: hidden-window renderer, per-cell sub-viewports and cameras, trails,
     labels, report, `--flat`, `--frame`; render smoke test.
 18. **G1.18 Editor reload and preview.** `ResourceReloader`, `ResourceLoader.GetCached/ReloadInPlace`, watcher paths,
     conflict notice, model `.mfmeta` reopen; `AnimationPlayer` inspector preview; editor tests; QA script.

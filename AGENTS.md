@@ -31,7 +31,7 @@ just publish-local    # package the editor like the release workflow (artifacts/
 just export [args]    # mf-export: a game's export presets from project.mfproj (--preset, --all, --list, --pack-list; G5, docs/design/game-export.md)
 just export-smoke     # the Demo exported packed (Assets.mfpak) vs its loose Release build, screenshots compared (needs a display, magick)
 just l10n-check       # committed .mo files match their .po (CI runs it)
-just mfe <group> …    # mfe, the engine/editor CLI, in the current directory (G1c: `mfe anim rig|poses|bake|describe|check|list`)
+just mfe <group> …    # mfe, the engine/editor CLI, in the current directory (G1c: `mfe anim rig|poses|bake|describe|check|list|render`)
 just l10n-engine      # the engine's own strings (settings menu, input names) → Assets/UI/settings/settings.pot
 just docs             # the docs site (Astro Starlight, docs-site/) with live reload; just docs-build = the Pages build
 ```
@@ -242,7 +242,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `<media>.mftranscript.json`; G20.2's titles (`TitleRasterizer`, CPU rasters through `Font.RenderLine`), transitions,
   fades, speed and captions) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
 - `Tools/MainframeEngine.Cli/` — `mfe`, the engine/editor CLI (`MfeCli`, `MfeProject`; `anim` commands for G1c animation
-  authoring, docs/design/animation.md#the-mfe-cli)
+  authoring, docs/design/animation.md#the-mfe-cli; `ContactSheet/`: `mfe anim render`, an `Engine` with a hidden window,
+  G1.17)
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Tools/MainframeEngine.Export/` + `.Export.Cli/` — the shared game `ExportRunner` (File › Export in the editor) and `mf-export`
   (presets in `project.mfproj`, publish, macOS bundle/signing, archives, `nativeAot`; replaces `package-game.sh`; ADRs

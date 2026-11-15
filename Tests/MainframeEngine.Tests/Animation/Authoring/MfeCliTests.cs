@@ -68,7 +68,7 @@ public sealed class MfeCliTests : IDisposable
         Assert.Equal(2, MfeCli.Run([], _output, _error));
         Assert.Equal(2, Mfe("scene", "list"));
         Assert.Contains("unknown command group 'scene'", _error.ToString(), StringComparison.Ordinal);
-        Assert.Equal(2, Mfe("anim", "render"));
+        Assert.Equal(2, Mfe("anim", "dance"));
         Assert.Equal(2, Mfe("anim", "list", Library, "--bogus", "1"));
         Assert.Contains("unknown option --bogus", _error.ToString(), StringComparison.Ordinal);
         Assert.Equal(2, MfeCli.Run(["anim", "list", Library, "--project", _scratch], _output, _error));
@@ -216,6 +216,21 @@ public sealed class MfeCliTests : IDisposable
         Assert.Equal(2, Mfe("anim", "check", Library, "squat"));
         Assert.Equal(2, Mfe("anim", "check", Library, "squat", "--model", Model, "--root", "sideways"));
         Assert.Equal(2, Mfe("anim", "check", Library, "squat", "--model", Model, "--tolerance", "slide=1"));
+    }
+
+    [Fact]
+    public void RenderOptionsAreCheckedBeforeAnythingRenders()
+    {
+        Assert.Equal(0, Mfe("anim", "bake", Squat()));
+        string[] clip = ["anim", "render", Library, "squat", "--model", Model];
+
+        Assert.Equal(2, Mfe(clip));
+        Assert.Contains("-o <sheet.png> is required", _error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(2, Mfe([.. clip, "-o", "s.png", "--views", "top"]));
+        Assert.Contains("unknown view 'top'", _error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(2, Mfe([.. clip, "-o", "s.png", "--frames", "4", "--frame", "0.5"]));
+        Assert.Equal(2, Mfe([.. clip, "-o", "s.png", "--frames", "40"]));
+        Assert.Equal(2, Mfe([.. clip, "-o", "s.png", "--size", "100"]));
     }
 
     [Fact]
