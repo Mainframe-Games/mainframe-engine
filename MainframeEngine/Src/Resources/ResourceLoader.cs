@@ -13,7 +13,7 @@ namespace MainframeEngine;
 /// <see cref="AssetDatabase.ProjectRoot"/> (the app folder for games). Loading is synchronous; the cache is
 /// thread-safe.
 /// </remarks>
-public static class ResourceLoader
+public static partial class ResourceLoader
 {
     private static readonly object Gate = new();
     private static readonly Dictionary<string, Resource> Cache = new(StringComparer.Ordinal);
@@ -75,6 +75,7 @@ public static class ResourceLoader
         {
             all = [.. Cache.Values.Distinct(ReferenceEqualityComparer.Instance).Cast<Resource>()];
             Cache.Clear();
+            Stamps.Clear();
         }
 
         foreach (var resource in all)
@@ -226,6 +227,7 @@ public static class ResourceLoader
 
             if (resource.Uid is not null)
                 assets.Register(resource.Uid, pathKey);
+            RememberStamp(pathKey, fullPath);
             return resource;
         }
         finally
@@ -244,6 +246,9 @@ public static class ResourceLoader
             if (resource.ResourcePath is not null)
                 Cache[AssetDatabase.Current.ToProjectPath(resource.ResourcePath)] = resource;
         }
+
+        if (resource.ResourcePath is not null)
+            RememberStamp(AssetDatabase.Current.ToProjectPath(resource.ResourcePath), AssetDatabase.Current.ToAbsolutePath(resource.ResourcePath));
     }
 
     /// <summary>The cached resource with <paramref name="uid"/> (no reference added), or null.</summary>

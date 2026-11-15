@@ -233,7 +233,8 @@ meshoptimizer (skinned surfaces excepted; ADR 0256). Details:
 `AnimationPlayer` **before** its imported clips (the importer creates a player for a model without clips of its own),
 so every instance plays them and a library clip wins over an imported clip of the same name. The pose baker adds the
 library it writes ([Animation and skinning → Pose scripts and baking](animation.md#pose-scripts-and-baking-g1c)). A
-library that fails to load is skipped with a warning.
+library that fails to load is skipped with a warning. The editor follows changes to both: a rewritten library reloads in place and a model whose `.mfmeta`
+now links one reopens the clean scenes that use it ([Editor → Files changed on disk](editor.md#files-changed-on-disk)).
 
 #### Humanoid map overrides (G1c)
 

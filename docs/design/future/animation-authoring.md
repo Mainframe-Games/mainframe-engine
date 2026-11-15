@@ -1,7 +1,7 @@
 # Proposal: Animation authoring (Claude-made clips, `mfe`, posing tools)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G1c authoring, G1d posing tools, G1e root
-motion, G1f auto-rigging and non-humanoid rigs) · **Status:** 🚧 accepted by the owner 2026-11-07 (ADR 0281); G1.12 and G1.13 built · **Depends on:**
+motion, G1f auto-rigging and non-humanoid rigs) · **Status:** 🚧 accepted by the owner 2026-11-07 (ADR 0281); G1c (G1.12–G1.19) built; G1d and G1f not started · **Depends on:**
 [Keyframe animation](../animation.md) (G1a `Animation`/`AnimationPlayer`, G1b `Skeleton3D`/`Skin`/skinning/import),
 [Asset pipeline](../asset-pipeline.md) (`.mfmeta` settings), [Editor](../editor.md) · **Related:**
 [Editor viewport tools](../editor.md#viewport-tools) (G7: Save as `.mfres`), [Physics](../physics.md) (`CharacterBody3D`),
@@ -545,12 +545,28 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
     are not kept; `just mfe` runs in the current directory so a project there is found; `rig --write-meta` goes through
     `HumanoidMap.Store`.) `Tools/MainframeEngine.Cli`, `MfeCli`, `CommandLine`, project discovery, `anim
     rig/poses/bake/describe/check/list`, `--json`, `just mfe`; add to `MainframeEngine.slnx`; CLI tests.
-17. **G1.17 Contact sheet.** `mfe anim render`: hidden-window renderer, per-cell sub-viewports and cameras, trails,
+17. ✅ **G1.17 Contact sheet.** (Built, [Animation and skinning → Contact sheets](../animation.md#contact-sheets-g1c).
+    Changes: cells are captured one after another from one hidden window the size of a cell (posed and re-aimed per
+    cell) instead of a `SubViewport` per cell; the cameras are narrow (12°) perspective ones, as the engine has no
+    orthographic camera; IK pins are not marked (scripts are not kept): contacts show in the strip's bands and the
+    shadows; trails are the strip's height curves; `--size` is the sheet's width; `render` takes `check`'s options for
+    its report; the engine's log goes to stderr while it renders.) `mfe anim render`: hidden-window renderer, per-cell sub-viewports and cameras, trails,
     labels, report, `--flat`, `--frame`; render smoke test.
-18. **G1.18 Editor reload and preview.** `ResourceReloader`, `ResourceLoader.GetCached/ReloadInPlace`, watcher paths,
+18. ✅ **G1.18 Editor reload and preview.** (Built, [Editor → Files changed on disk](../editor.md#files-changed-on-disk),
+    [Animation and skinning → Animation panel](../animation.md#animation-panel). Changes: the editor's own saves are told
+    apart by the file's size and time recorded at load and save, not by path; `ResourceLoader` gains `ReloadInPlace` and
+    `Evict` (public: the editor uses them) instead of `GetCached`; the watcher queues `.mfres` and `.mfmeta` paths whether
+    or not the tree shows them; the conflict question is the editor's message dialog (it has no toasts); the G1a panel
+    exists, so instead of an inspector dropdown, selecting an instanced model shows its player in the panel read-only;
+    no QA script: an editor QA script cannot write files from outside the editor mid-run, so `EditorReloadTests` cover the
+    loop.) `ResourceReloader`, `ResourceLoader.GetCached/ReloadInPlace`, watcher paths,
     conflict notice, model `.mfmeta` reopen; `AnimationPlayer` inspector preview; editor tests; QA script.
-19. **G1.19 Skill and docs.** `.claude/skills/animate/SKILL.md` (engine and template), `AGENTS.md`, current-state doc,
-    `asset-pipeline.md`; an end-to-end run on the CC0 character recorded in the PR.
+19. ✅ **G1.19 Skill and docs.** (Built: `.claude/skills/animate/SKILL.md` and its template copy, [Animation and skinning
+    → The `mfe` CLI](../animation.md#the-mfe-cli). Changes: the end-to-end run added target-then-pin IK
+    (`{ "pos": [...], "pin": true }`) so a landing puts the feet back where the clip started; package games have no `mfe`
+    yet (the skill uses an engine checkout with `--project`); the current-state change is in the log's State changes,
+    as feature PRs never edit the state file.) `.claude/skills/animate/SKILL.md` (engine and template), `AGENTS.md`,
+    current-state doc, `asset-pipeline.md`; an end-to-end run on the CC0 character recorded in the PR.
 
 **G1e**
 

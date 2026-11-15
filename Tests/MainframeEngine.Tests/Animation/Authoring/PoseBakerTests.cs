@@ -181,6 +181,40 @@ public class PoseBakerTests
     }
 
     [Fact]
+    public void ATargetWithPinLandsThereLevelAndHolds()
+    {
+        // The feet lift off, then land on the spots they started from and stay through a crouch.
+        var result = Bake("""
+            { "model": "m.glb", "library": "l.mfres", "name": "land", "length": 1.2,
+              "keys": [
+                { "t": 0, "pose": "stand" },
+                { "t": 0.3, "joints": { "LeftUpperLeg": { "flex": 40 }, "LeftLowerLeg": { "flex": 70 } }, "mirror": true },
+                { "t": 0.6, "joints": { "LeftUpperLeg": { "flex": 20 }, "LeftLowerLeg": { "flex": 35 } }, "mirror": true,
+                  "ik": { "leftFoot": { "pos": [0.1, 0.1, 0], "pin": true }, "rightFoot": { "pos": [-0.1, 0.1, 0], "pin": true } } },
+                { "t": 0.9, "hips": { "y": -0.12 } },
+                { "t": 1.2, "pose": "stand" }
+              ] }
+            """, out var rig);
+        var skeleton = rig.Skeleton;
+        var foot = rig.GetRigBone(HumanoidBone.LeftFoot);
+        var restRotation = skeleton.GetBoneGlobalRest(foot).Basis.GetRotation();
+
+        (Vector3 Position, Quaternion Rotation) FootAt(double t)
+        {
+            skeleton.ResetBonePoses();
+            ClipSampler.Apply(result.Animation, skeleton, new NodePath("Armature"), t);
+            var pose = skeleton.GetBoneGlobalPose(foot);
+            return (rig.ToCharacterSpace(pose.Origin), pose.Basis.GetRotation());
+        }
+
+        var landed = FootAt(0.6);
+        Assert.True(Vector3.Distance(landed.Position, new Vector3(0.1f, 0.1f, 0f)) < 0.02f, $"landed at {landed.Position}");
+        Assert.True(MathF.Abs(Quaternion.Dot(landed.Rotation, restRotation)) > 0.999f, "the landing foot is level");
+        for (var t = 0.6; t <= 1.2 + 1e-6; t += 1.0 / 60)
+            Assert.True(Vector3.Distance(FootAt(t).Position, landed.Position) <= PoseBaker.DefaultTolerance + 1e-3f, $"the foot slid at {t:0.000} s");
+    }
+
+    [Fact]
     public void APinTheHipsRiseOutOfReachOfIsNoted()
     {
         var result = Bake("""

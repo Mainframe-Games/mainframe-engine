@@ -31,7 +31,7 @@ just publish-local    # package the editor like the release workflow (artifacts/
 just export [args]    # mf-export: a game's export presets from project.mfproj (--preset, --all, --list, --pack-list; G5, docs/design/game-export.md)
 just export-smoke     # the Demo exported packed (Assets.mfpak) vs its loose Release build, screenshots compared (needs a display, magick)
 just l10n-check       # committed .mo files match their .po (CI runs it)
-just mfe <group> …    # mfe, the engine/editor CLI, in the current directory (G1c: `mfe anim rig|poses|bake|describe|check|list`)
+just mfe <group> …    # mfe, the engine/editor CLI, in the current directory (G1c: `mfe anim rig|poses|bake|describe|check|list|render`)
 just l10n-engine      # the engine's own strings (settings menu, input names) → Assets/UI/settings/settings.pot
 just docs             # the docs site (Astro Starlight, docs-site/) with live reload; just docs-build = the Pages build
 ```
@@ -225,7 +225,7 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   (the timeline shared by the song, animation and video views), `Inspector/`, `Trees/` (the `Tree3D` inspector, G8b.3; Bake Variants, G8b.7), `SceneTree/`, `Viewport/` (camera,
   3D/2D gizmos, picking; `Tools/`: `IEditorViewportTool`, ADR 0270), `Terrain/` (the Terrain dock), `Projects/` (`ProjectService`: game assembly in a collectible ALC, code reload; New Project,
   Project Settings; `EditorLoader`: projects and scenes open behind the loading window, ADR 0238), `Play/` (`dotnet build` + game processes over the editor link), `FileSystem/` (file tree, moves
-  with UID reference fix-ups, OS trash), `Settings/` (editor settings, code editor), `Updates/` (self-update from GitHub Releases: check, download, `--apply-update` swap), `UI/` (panels, dialogs), `Qa/`
+  with UID reference fix-ups, OS trash; `ResourceReloader`: files changed on disk, G1.18), `Settings/` (editor settings, code editor), `Updates/` (self-update from GitHub Releases: check, download, `--apply-update` swap), `UI/` (panels, dialogs), `Qa/`
   (`--qa-script`, `--smoke`). The RmlUi debugger is F9 (F5–F8 are Play keys, F10 is Play and Record). Code reload re-creates scenes that use
   game code: editor code must not keep game nodes/types in fields or statics past `ReleaseEditorReferences`.
   References engine core only (no generator: editor nodes stay unregistered). See `docs/design/editor.md`
@@ -242,7 +242,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `<media>.mftranscript.json`; G20.2's titles (`TitleRasterizer`, CPU rasters through `Font.RenderLine`), transitions,
   fades, speed and captions) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
 - `Tools/MainframeEngine.Cli/` — `mfe`, the engine/editor CLI (`MfeCli`, `MfeProject`; `anim` commands for G1c animation
-  authoring, docs/design/animation.md#the-mfe-cli)
+  authoring, docs/design/animation.md#the-mfe-cli; `ContactSheet/`: `mfe anim render`, an `Engine` with a hidden window,
+  G1.17)
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Tools/MainframeEngine.Export/` + `.Export.Cli/` — the shared game `ExportRunner` (File › Export in the editor) and `mf-export`
   (presets in `project.mfproj`, publish, macOS bundle/signing, archives, `nativeAot`; replaces `package-game.sh`; ADRs
@@ -461,6 +462,9 @@ Work follows the [Mainframe workflow](https://github.com/Mainframe-Games/workflo
 `mf-start`, `mf-propose`, `mf-plan`, `mf-decide`, `mf-ship`, `mf-engine-bug`. This project's paths and gates are in
 `.agents/workflow.md`. `.agents/mainframe-workflow/` and the `mf-*` skills are a pinned copy: never edit them here, change
 the workflow repo and re-run its `sync.sh`. ADR 0233 records why.
+
+Animation clips for rigged humanoids are made with the `animate` skill (`.claude/skills/animate/`, G1c): pose scripts
+baked, checked and rendered by `just mfe anim …` (docs/design/animation.md#the-mfe-cli).
 
 ## Project memory
 

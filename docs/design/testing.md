@@ -11,7 +11,7 @@ gates (validation, allocation), and benchmarks with a stored baseline. Every rec
 | Project | Kind | Runs on |
 |---|---|---|
 | [`Tests/MainframeEngine.Tests`](../../Tests/MainframeEngine.Tests/) | xUnit v3 unit tests, no window/GPU | every OS in CI (`just test`) |
-| [`Tests/MainframeEngine.RenderTests`](../../Tests/MainframeEngine.RenderTests/) | xUnit v3 render tests (also the editor's `--smoke` run) | lavapipe in CI and in Docker (`just render-tests-linux`), MoltenVK locally (`just test-render`) |
+| [`Tests/MainframeEngine.RenderTests`](../../Tests/MainframeEngine.RenderTests/) | xUnit v3 render tests (also the editor's `--smoke` run and `mfe anim render`, G1.17) | lavapipe in CI and in Docker (`just render-tests-linux`), MoltenVK locally (`just test-render`) |
 | [`Tests/MainframeEngine.RenderTests.Host`](../../Tests/MainframeEngine.RenderTests.Host/) | Console app that runs one scene | launched by the render tests |
 | [`Tests/MainframeEngine.Editor.Tests`](../../Tests/MainframeEngine.Editor.Tests/) | xUnit v3 editor tests: models and the whole editor UI headless; projects, Play (fake builder/launcher), FileSystem, code reload (Roslyn-compiled game assemblies); `Category=Slow` tests run the real `dotnet new mfgame` + build and a real export (G5); the export library's tests (`Export/`) | every OS in CI (`just test`) |
 | [`Tests/MainframeEngine.Video.Tests`](../../Tests/MainframeEngine.Video.Tests/) | xUnit v3 tests of `MainframeEngine.Video` (the video mode's logic, ported from Cutback): partition, planners, sidecar, projects, transcripts, ffmpeg argument and output parsing; never runs ffmpeg or loads a Whisper model ([Video editing mode](video-editor.md#testing)) | every OS in CI (`just test`) |

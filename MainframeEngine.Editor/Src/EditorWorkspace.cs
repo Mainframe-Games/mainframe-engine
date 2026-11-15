@@ -258,6 +258,9 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>The bottom dock's contextual Animation tab (G1.6).</summary>
     public AnimationPanel AnimationPanel { get; private set; } = null!;
 
+    /// <summary>Reloads resource files changed on disk and reopens scenes whose models changed (G1.18).</summary>
+    public ResourceReloader Reloader { get; private set; } = null!;
+
     private bool _animationTab;      // the contextual Animation tab is shown (never saved)
     private bool _animationShown;    // an AnimationPlayer is edited: the Animation dock tab is offered
     private bool _keysShown;         // the inspector shows key buttons
@@ -427,6 +430,8 @@ public sealed partial class EditorWorkspace : Node
         ProfilerPanel = new ProfilerPanel(this) { Name = "Profiler", Visible = false };
         TileMapPanel = new TileMapPanel(this) { Name = "TileMap", Visible = false };
         Animations = new AnimationEditor(this);
+        Reloader = new ResourceReloader(Session, () => Inspector.InspectedResource, request => Message.Show(request));
+        Reloader.Reloaded += Animations.OnResourceReloaded;
         AnimationPanel = new AnimationPanel(this) { Name = "Animation", Visible = false };
         SongPanel = new SongPanel(this) { Name = "Song" };
         VideoPanel = new VideoPanel(this) { Name = "Video" };

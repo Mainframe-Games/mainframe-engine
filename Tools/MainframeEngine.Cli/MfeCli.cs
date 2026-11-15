@@ -15,7 +15,7 @@ internal static class MfeCli
     public const string Usage = """
         mfe — Mainframe Engine command-line tool
 
-          mfe anim <command> …    Animation authoring on rigged humanoids (G1c): rig, poses, bake, describe, check, list
+          mfe anim <command> …    Animation authoring on rigged humanoids (G1c): rig, poses, bake, describe, check, list, render
           mfe help                This text; `mfe anim help` lists the anim commands
 
         Options for every command: --project <dir> (default: the nearest project.mfproj above the working directory),
@@ -25,7 +25,7 @@ internal static class MfeCli
 
     internal static readonly IReadOnlySet<string> Flags = new HashSet<string>(StringComparer.Ordinal)
     {
-        "--json", "--write-meta", "--replace", "--no-link", "--help", "-h",
+        "--json", "--write-meta", "--replace", "--no-link", "--flat", "--help", "-h",
     };
 
     public static int Run(string[] args, TextWriter output, TextWriter error)
@@ -64,6 +64,11 @@ internal static class MfeCli
         {
             error.WriteLine($"mfe: {e.Message}");
             return 2;
+        }
+        catch (ContactSheet.RenderUnavailableException e)
+        {
+            error.WriteLine($"mfe: {e.Message}");
+            return 1;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or FormatException
                                       or System.Text.Json.JsonException)

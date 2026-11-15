@@ -282,6 +282,12 @@ the pin keeps the panel on that player while other nodes are selected for keying
   fire in the editor. Before the first preview the panel records the values the animation touches and puts them back on
   Stop, when the edited player changes, and around every save, so saved scenes hold authored values, never a preview
   frame (Godot's `RESET` animation is not needed).
+- **Instanced models** (G1.18): selecting an instance (an imported model, a sub-scene) whose scene has an
+  `AnimationPlayer` shows that player in the panel **read-only** (a lock and the scene's name in the header): its clips,
+  baked ones from linked libraries included, play, scrub and loop, and nothing is edited (no history, no key buttons, the
+  edit controls hidden). They belong to the model and its libraries: change them with `mfe anim bake` or by opening the
+  scene. When a library changes on disk ([Editor → Files changed on disk](editor.md#files-changed-on-disk)) a running
+  preview restarts from its time on the new keys.
 - **Undo:** every edit (keys, tracks, animation settings, library changes) is one step in the scene tab's history
   (`AnimationEditAction` snapshots the animation's tracks, `AnimationLibraryAction` the library); a key drag is one step,
   Esc cancels it.
@@ -329,8 +335,10 @@ reads it (every error with its JSON path, unknown properties rejected) and `Pose
 
 - **Keys:** `t`, a named `pose` (the first key needs one; later keys start from the previous key), `hips`
   (`x/y/z/yaw/pitch/roll`), `joints` (any of `flex/abduct/twist` per bone; hinges flex only), `mirror` (left to right, or
-  right to left where only the right is given), `ik` (`"pin"`, `"release"`, `{ "pos": [x, y, z] }` in character space) and
-  `ease` (`linear`, `in`, `out`, `inOut` or a number: the `Transitions` value of the segment **after** the key).
+  right to left where only the right is given), `ik` (`"pin"`, `"release"`, `{ "pos": [x, y, z] }` in character space,
+  `{ "pos": [...], "pin": true }`: reach it, the foot or hand put down as at rest unless the key gives its angles, and
+  hold it like a pin; G1.19, for landings on exact spots) and `ease` (`linear`, `in`, `out`, `inOut` or a number: the
+  `Transitions` value of the segment **after** the key).
 - **Root:** `inPlace` (default) keeps the keys' hips offsets and ignores arcs, with a note; `motion` keeps horizontal
   offsets and adds arcs, for root motion with `RootMotionBone` = the hips (`PoseBakeResult.HipsBone`).
 - **Arcs** add `4k·u(1−u)` to the keyed hips height between `from` and `to`: `k = g·T²/8` from the project's gravity, or
@@ -417,6 +425,14 @@ the time range (consecutive failing samples merge), the subject, the worst value
 
 ## The `mfe` CLI
 
+The **`animate` skill** (`.claude/skills/animate/SKILL.md`, G1.19; game projects get the same file from the `mfgame`
+template) teaches Claude Code the loop below: rig once, write a pose script in its scratch space, bake, read the checks,
+render and look at the contact sheet, fix (at most five rounds), and change existing clips with `describe` and edit
+scripts, never `--replace` unasked. It also says where `mfe` is in the engine repository, in a game built against a
+checkout (`MainframeEnginePath`) and in a package game (an engine checkout with `--project`: the package does not carry
+`mfe` yet), and holds a reference of the script fields, the checks and motion notes, with a jump that passes every
+check.
+
 G1.16 ([animation authoring → The `mfe` CLI](future/animation-authoring.md#the-mfe-cli)): `Tools/MainframeEngine.Cli/`
 builds `mfe`, the engine/editor command-line tool; `anim` is its first command group. In this repo `just mfe …` runs it in
 the current directory; a game project runs `dotnet run --project <engine checkout>/Tools/MainframeEngine.Cli -c Release
@@ -430,6 +446,7 @@ the current directory; a game project runs `dotnet run --project <engine checkou
 | `mfe anim describe <library> <clip> --model <m> [--times 0.2,0.4]` | `ClipDescriber` in text. |
 | `mfe anim check <library> <clip> --model <m> [--root inPlace\|motion] [--start <pose>] [--end <pose>] [--tolerance …]` | `AnimationChecks`. |
 | `mfe anim list <library>` | Each clip's length, loop, tracks, keys and whether it is an untouched bake. |
+| `mfe anim render <library> <clip> --model <m> -o <png> [--frames n] [--views …] [--size px] [--frame t] [--flat]` | A contact sheet ([below](#contact-sheets-g1c)). Takes `check`'s `--root`, `--start`, `--end` and `--tolerance` for its report. |
 
 - **Project:** `--project <dir>`, else the nearest `project.mfproj` above the working directory. A run points
   `ContentPaths.ProjectDirectory` and `AssetDatabase.Current` at it and restores both. Models and libraries are project
@@ -440,6 +457,33 @@ the current directory; a game project runs `dotnet run --project <engine checkou
   failed; 2 usage or input errors: a script error (each with its JSON path), a missing file or clip, a refused
   replace. Nothing is written on 2.
 - Unknown options are errors; `--tolerance` takes `name=value` pairs (repeatable, comma-separated).
+
+## Contact sheets (G1c)
+
+G1.17 ([animation authoring → Contact sheet rendering](future/animation-authoring.md#contact-sheet-rendering)):
+`mfe anim render` writes one picture of a clip to look at, in `Tools/MainframeEngine.Cli/ContactSheet/`.
+
+![A contact sheet of the G1.13 test jump (root motion): six key times from three views, the trajectory strip and the check report, which lists the script's real problems](../images/animation-contact-sheet.png)
+
+- **Layout** (`ContactSheetLayout`): a header (clip, model, length, loop, baked state, library, check summary), one row
+  per view (`front`, `side`, `threequarter`) and one column per frame, then the trajectory strip and the check report.
+  Frames are the times every track is keyed (refinement-only times left out, evenly thinned to 12), or `--frames n`
+  times spaced over the clip (a sampled frame's label ends in `·`), or `--frame t`: one large frame with the views side
+  by side. `--size` is the sheet's width (default 1 600 px).
+- **Cells** (`ContactSheetRenderer`, an `Engine` with a hidden window): the model on a lit ground (sun shadows, a
+  procedural sky), posed with `ClipSampler` and seen from each view in turn, captured with `CaptureFrame` a few frames
+  later; each cell renders at twice its size (at most 1 024 px high) and is box-filtered down. The engine has no
+  orthographic camera, so a 12° camera far enough away to fit 1.45× the character's height stands in; it looks along
+  the character's −forward (front), from its left (side) or from front-left and 12° above (three-quarter), centred on
+  the hips' ground position at that time, so root motion stays in frame. `--flat` gives every mesh one unshaded grey:
+  silhouettes.
+- **Strip** (`ContactSheetComposer`): hips, feet and hands heights above the ground over time at 60 Hz, the frame
+  times, and each foot's contact band (from `ClipDescriber`).
+- **Text** is drawn on the CPU (`SheetCanvas`, `Font.RenderLine`: Lato for labels, Roboto Mono for the report, the
+  report's errors in red and warnings in amber); the sheet is written with `Png.WriteRgba8`.
+- The engine's own log goes to stderr (warnings and errors only) while it renders, so `--json` stays one document.
+- **Needs a GPU and a display** (macOS: awake). Without one, `render` exits 1 naming the cause; `describe` and `check`
+  still give the numbers.
 
 ## Guide
 
@@ -471,8 +515,13 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   (a clean squat passes; the G1.13 test jump's real problems are found; a clip built to break each check reports it;
   tolerances move the thresholds) on the test character; `MfeCliTests` runs `mfe anim` in-process on a temp project (help
   and usage errors, rig and `--write-meta`, poses, bake with links and checks, exit 1 on check errors and 2 on script
-  errors, the replace guard, an edit script, describe and check with options, JSON output, restored globals).
-- **Editor:** `AnimationNodesTests` (warnings, icons), `AnimationEditorTests` (every undo action, key buttons and K,
+  errors, the replace guard, an edit script, describe and check with options, JSON output, restored globals, render's
+  option errors) and `ContactSheetLayoutTests` (frames, geometry, the canvas, a composed sheet). Render:
+  `ContactSheetTests` runs `mfe.dll` out of process on a temp project (every cell of a shaded and a `--flat` sheet
+  shows the character; `--frame` with `--json`).
+- **Editor:** `EditorReloadTests` (G1.18: a linked library rewritten on disk reloads into the open scene's player, the
+  editor's own save is no reload, unsaved edits ask first, a model that now links a library reopens the clean scene and
+  asks for a dirty one, an instanced model's player previews read-only), `AnimationNodesTests` (warnings, icons), `AnimationEditorTests` (every undo action, key buttons and K,
   drags with snap and cancel, rubber band, method and audio keys, preview capture and restore, saving while previewing),
   `TimelineTests` (zoom around the mouse, ruler steps); the song tab's tests run on the shared timeline.
 - **QA:** [`Tests/QA/animation-walkthrough.qa`](../../Tests/QA/animation-walkthrough.qa) (`just qa-editor

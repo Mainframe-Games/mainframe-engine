@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using MainframeEngine.Cli.ContactSheet;
 
 namespace MainframeEngine.Cli;
 
@@ -29,6 +30,11 @@ internal static class AnimCommands
                 Run the checks; exit 1 on errors (warnings do not fail).
           list <library>
                 The library's clips: length, loop, tracks, keys, baked state.
+          render <library> <clip> --model <model> -o <sheet.png> [--frames n] [--views front,side,threequarter]
+                [--size 1600] [--frame <t>] [--flat] [--root …] [--start …] [--end …] [--tolerance …]
+                A contact sheet to look at: the clip posed at its key times (or n even times, or one large frame) from
+                each view, a trajectory strip (hips, feet and hands heights, feet contacts) and the check report. Needs a
+                GPU and a display.
 
         Paths to models and libraries are project paths (Assets/…); the script is a file path. Every command takes
         --project <dir> and --json.
@@ -53,7 +59,8 @@ internal static class AnimCommands
             "describe" => WithProject(projectOption, project => Describe(project, command, json, output)),
             "check" => WithProject(projectOption, project => Check(project, command, json, output)),
             "list" => WithProject(projectOption, project => List(project, command, json, output)),
-            _ => throw new UsageException($"unknown anim command '{args[0]}' (rig, poses, bake, describe, check, list)"),
+            "render" => WithProject(projectOption, project => Render(project, command, json, output, error)),
+            _ => throw new UsageException($"unknown anim command '{args[0]}' (rig, poses, bake, describe, check, list, render)"),
         };
     }
 
@@ -442,6 +449,21 @@ internal static class AnimCommands
 
     private static int Check(MfeProject project, CommandLine command, bool json, TextWriter output)
     {
+        var options = CheckOptions(project, command);
+        var (model, rig, clip, _) = LoadClip(project, command);
+        command.EnsureAllUsed();
+
+        var report = AnimationChecks.Run(clip, rig, model.SkeletonPath, options);
+        if (json)
+            WriteJson(output, w => WriteReportFields(w, report));
+        else
+            output.Write(report.ToText());
+        return report.HasErrors ? 1 : 0;
+    }
+
+    // --root, --start, --end and --tolerance: what a script would have declared, for a clip checked on its own.
+    private static AnimationCheckOptions CheckOptions(MfeProject project, CommandLine command)
+    {
         PoseRootMode? root = command.Option("--root") switch
         {
             null => null,
@@ -449,26 +471,112 @@ internal static class AnimCommands
             "motion" => PoseRootMode.Motion,
             var other => throw new UsageException($"--root must be inPlace or motion, not '{other}'"),
         };
-        var start = PoseName(command.Option("--start"), "--start");
-        var end = PoseName(command.Option("--end"), "--end");
-        var tolerances = Tolerances(command);
-        var (model, rig, clip, _) = LoadClip(project, command);
-        command.EnsureAllUsed();
-
-        var report = AnimationChecks.Run(clip, rig, model.SkeletonPath, new AnimationCheckOptions
+        return new AnimationCheckOptions
         {
             Root = root,
-            StartPose = start,
-            EndPose = end,
-            Tolerances = tolerances,
+            StartPose = PoseName(command.Option("--start"), "--start"),
+            EndPose = PoseName(command.Option("--end"), "--end"),
+            Tolerances = Tolerances(command),
             Gravity = project.Gravity,
-        });
-        if (json)
-            WriteJson(output, w => WriteReportFields(w, report));
-        else
-            output.Write(report.ToText());
-        return report.HasErrors ? 1 : 0;
+        };
     }
+
+    private static int Render(MfeProject project, CommandLine command, bool json, TextWriter output, TextWriter error)
+    {
+        var outputPath = Path.GetFullPath(command.Option("--output") ?? throw new UsageException("-o <sheet.png> is required"));
+        int? count = command.Option("--frames") is { } frames
+            ? int.TryParse(frames, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) && n is >= 1 and <= 24
+                ? n
+                : throw new UsageException("--frames must be a whole number from 1 to 24")
+            : null;
+        float? single = command.Option("--frame") is { } frame
+            ? float.TryParse(frame, NumberStyles.Float, CultureInfo.InvariantCulture, out var t) && t >= 0f
+                ? t
+                : throw new UsageException("--frame must be a time in seconds")
+            : null;
+        if (count is not null && single is not null)
+            throw new UsageException("--frames and --frame do not go together");
+        var size = command.Option("--size") is { } sizeText
+            ? int.TryParse(sizeText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var s) && s is >= 400 and <= 6000
+                ? s
+                : throw new UsageException("--size must be from 400 to 6000 pixels")
+            : 1600;
+        var views = new List<SheetView>();
+        foreach (var name in command.Many("--views"))
+            views.Add(ContactSheetLayout.TryParse(name, out var view) ? view : throw new UsageException($"--views: unknown view '{name}' (front, side, threequarter)"));
+        if (views.Count == 0)
+            views = [SheetView.Front, SheetView.Side, SheetView.ThreeQuarter];
+        var flat = command.Flag("--flat");
+        var options = CheckOptions(project, command);
+        var (model, rig, clip, library) = LoadClip(project, command);
+        command.EnsureAllUsed();
+        if (model.Root is not Node3D root)
+            throw new InputException($"{model.Path} does not import as a 3D scene.");
+
+        var keys = ClipDescriber.Describe(clip, rig, model.SkeletonPath);
+        var sheetFrames = ContactSheetLayout.ChooseFrames(keys, count, single);
+        var report = AnimationChecks.Run(clip, rig, model.SkeletonPath, options);
+        var reportLines = report.ToText().TrimEnd('\n').Split('\n');
+        var sampleCount = Math.Max(2, (int)MathF.Ceiling(clip.Length * 60f) + 1);
+        var stripTimes = Enumerable.Range(0, sampleCount).Select(i => clip.Length * i / (sampleCount - 1)).ToList();
+        var hipHeight = rig.Proportions.HipHeight;
+        var strip = ClipDescriber.Describe(clip, rig, model.SkeletonPath, stripTimes).Times.Select(d => new StripSample(
+            d.Time, hipHeight + d.Pose.Hips.Offset.Y, Height(d, IkEffector.LeftFoot), Height(d, IkEffector.RightFoot),
+            Height(d, IkEffector.LeftHand), Height(d, IkEffector.RightHand),
+            d.Effectors.TryGetValue(IkEffector.LeftFoot, out var lf) && lf.Contact, d.Effectors.TryGetValue(IkEffector.RightFoot, out var rf) && rf.Contact)).ToList();
+
+        var layout = ContactSheetLayout.Create(views, sheetFrames, size, reportLines.Length);
+        var cells = ContactSheetRenderer.Render(root, clip, model.SkeletonPath, rig, layout, flat, error);
+        var state = keys.UntouchedBake ? "baked, untouched" : keys.Baked ? "baked, changed since" : "not baked";
+        var content = new ContactSheetContent
+        {
+            Title = $"{clip.ResourceName} · {model.Path}",
+            Subtitle = $"{F(clip.Length)} s · loop {clip.LoopMode} · {state} · {library} · checks: {report.Errors} error(s), {report.Warnings} warning(s)" +
+                       (flat ? " · flat" : ""),
+            Length = clip.Length,
+            Strip = strip,
+            Report = reportLines,
+            Cells = cells,
+        };
+        var canvas = ContactSheetComposer.Compose(layout, content, LoadFont("LatoLatin-Regular"), LoadFont("RobotoMono-Regular"));
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+        Png.WriteRgba8(outputPath, canvas.Width, canvas.Height, canvas.Pixels);
+
+        if (json)
+        {
+            WriteJson(output, w =>
+            {
+                w.WriteString("path", outputPath);
+                w.WriteNumber("width", canvas.Width);
+                w.WriteNumber("height", canvas.Height);
+                WriteStrings(w, "views", layout.Views.Select(ContactSheetLayout.Name));
+                w.WriteStartArray("frames");
+                foreach (var f in layout.Frames)
+                {
+                    w.WriteStartObject();
+                    w.WriteNumber("t", f.Time);
+                    w.WriteBoolean("key", f.IsKey);
+                    w.WriteEndObject();
+                }
+
+                w.WriteEndArray();
+                w.WritePropertyName("checks");
+                WriteReport(w, report);
+            });
+            return 0;
+        }
+
+        output.WriteLine($"Wrote {outputPath} ({canvas.Width} × {canvas.Height}): {layout.Views.Count} view(s) × {layout.Frames.Count} frame(s) " +
+                         $"at {string.Join(", ", layout.Frames.Select(f => f.Label))}.");
+        output.WriteLine($"Checks: {report.Errors} error(s), {report.Warnings} warning(s) (the report is on the sheet; `mfe anim check` prints it).");
+        return 0;
+    }
+
+    private static float Height(ClipDescriptionTime time, IkEffector effector) =>
+        time.Effectors.TryGetValue(effector, out var state) ? state.Height : 0f;
+
+    private static Font LoadFont(string name) =>
+        Font.FromData(ContentFiles.ReadAllBytes(ContentPaths.Resolve($"Assets/UI/fonts/{name}.ttf")));
 
     private static string? PoseName(string? name, string option) =>
         name is null || HumanoidPoses.Names.Contains(name)

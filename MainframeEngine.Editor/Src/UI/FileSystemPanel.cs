@@ -243,7 +243,7 @@ public sealed class FileSystemPanel : EditorDocument
         return Directory.Exists(src) ? src : folder;
     }
 
-    /// <summary>Main thread, every frame: applies watcher changes and finished thumbnails.</summary>
+    /// <summary>Main thread, every frame: applies watcher changes (and hands changed resource files to the reloader) and finished thumbnails.</summary>
     public void Tick()
     {
         if (_fs is null)
@@ -253,6 +253,10 @@ public sealed class FileSystemPanel : EditorDocument
             // New files get their .mfmeta sidecar (UID) like on project open.
             AssetDatabase.Current.Scan(createMissingMeta: true);
         }
+
+        // G1.18: resource files and model sidecars written outside the editor (mfe, a person, a script).
+        if (_fs.TakeChangedFiles() is { Count: > 0 } changed)
+            Workspace.Reloader.FilesChanged(changed);
 
         _thumbnails?.Pump();
         if (_thumbsDirty)

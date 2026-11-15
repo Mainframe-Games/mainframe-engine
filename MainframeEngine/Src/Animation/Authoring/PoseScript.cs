@@ -34,8 +34,11 @@ public enum IkCommandKind : byte
     Target,
 }
 
-/// <summary>An IK instruction of a key.</summary>
-public readonly record struct IkCommand(IkCommandKind Kind, Vector3 Target = default);
+/// <summary>
+/// An IK instruction of a key. With <see cref="Pin"/>, a <see cref="IkCommandKind.Target"/> is reached and then held like
+/// a <see cref="IkCommandKind.Pin"/> (a foot landing exactly there).
+/// </summary>
+public readonly record struct IkCommand(IkCommandKind Kind, Vector3 Target = default, bool Pin = false);
 
 /// <summary>Joint angles a key gives (degrees); null components hold the previous key's value.</summary>
 public readonly record struct PartialAngles(float? Flex = null, float? Abduct = null, float? Twist = null)

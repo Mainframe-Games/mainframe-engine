@@ -75,6 +75,7 @@ public class PoseScriptParserTests
     [InlineData("""{ "t": 0.5, "ik": { "leftKnee": "pin" } }""", "keys[1].ik.leftKnee", "unknown effector")]
     [InlineData("""{ "t": 0.5, "ik": { "leftFoot": { "pos": [0, 0, 0], "space": "world" } } }""", "keys[1].ik.leftFoot.space", "character-space")]
     [InlineData("""{ "t": 0.5, "ik": { "leftFoot": "hold" } }""", "keys[1].ik.leftFoot", "\"pin\"")]
+    [InlineData("""{ "t": 0.5, "ik": { "leftFoot": { "pos": [0, 0, 0], "pin": "yes" } } }""", "keys[1].ik.leftFoot.pin", "true or false")]
     [InlineData("""{ "t": 0.5, "hips": { "height": 1 } }""", "keys[1].hips.height", "unknown property")]
     [InlineData("""{ "t": 0.5, "mirror": "yes" }""", "keys[1].mirror", "true or false")]
     [InlineData("""{ "t": 3 }""", "keys[1].t", "outside the clip")]
