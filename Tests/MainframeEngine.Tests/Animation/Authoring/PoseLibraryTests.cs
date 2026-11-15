@@ -90,6 +90,64 @@ public sealed class PoseLibraryTests : IDisposable
     }
 
     [Fact]
+    public void AnEditOfAHandEditedClipWritesOverItsBaseAndKeepsTheFix()
+    {
+        PoseLibrary.Write(BakeJump(), LibraryPath, ModelPath);
+        ResourceLoader.ClearCache();
+        var library = ResourceLoader.Load<AnimationLibrary>(LibraryPath);
+        var spine = library.Get("jump")!.Tracks.OfType<Rotation3DTrack>().Single(t => t.Bone == "Spine");
+        var fixedValue = Quaternion.Normalize(spine.Values[2] * Quaternion.CreateFromAxisAngle(Vector3.UnitX, 0.1f));
+        spine.Values[2] = fixedValue;
+        ResourceSaver.Save(library, LibraryPath);
+        ResourceLoader.ClearCache();
+
+        var root = ModelImporter.ImportNodes(Absolute(ModelPath), ModelImportSettings.Default);
+        var skeleton = root.GetNode<Skeleton3D>("Armature");
+        var rig = new HumanoidRig(skeleton, HumanoidMap.Detect(skeleton, null, out _));
+        var edit = PoseScriptParser.ParseEdit("""
+            { "model": "Assets/Characters/hero.glb", "library": "Assets/Characters/hero_anims.mfres", "base": "jump",
+              "edits": [ { "t": 0.12, "joints": { "LeftUpperArm": { "flex": "-=10" } } } ] }
+            """);
+        var result = PoseEditor.Apply(edit, PoseLibrary.Read(LibraryPath, "jump"), rig, root.GetPathTo(skeleton));
+
+        Assert.True(PoseLibrary.WriteEdit(result.Animation, LibraryPath, "jump").ReplacedClip);
+        ResourceLoader.ClearCache();
+        var written = PoseLibrary.Read(LibraryPath, "jump");
+        Assert.Equal(fixedValue, written.Tracks.OfType<Rotation3DTrack>().Single(t => t.Bone == "Spine").Values[2]);
+        Assert.False(PoseLibrary.IsUntouchedBake(written));
+        // A full re-bake still refuses: the hand fix is in there.
+        Assert.Throws<PoseLibraryException>(() => PoseLibrary.Write(BakeJump(), LibraryPath, ModelPath));
+    }
+
+    [Fact]
+    public void AVariantOverAHandEditedClipIsGuarded()
+    {
+        PoseLibrary.Write(BakeJump(), LibraryPath, ModelPath);
+        var handMade = new MainframeEngine.Animation { ResourceName = "jump_high", Length = 1f };
+        var library = ResourceLoader.Load<AnimationLibrary>(LibraryPath);
+        library.Add("jump_high", handMade);
+        ResourceSaver.Save(library, LibraryPath);
+        ResourceLoader.ClearCache();
+        var variant = (MainframeEngine.Animation)PoseLibrary.Read(LibraryPath, "jump").Duplicate(deep: true);
+        variant.ResourceName = "jump_high";
+
+        Assert.Throws<PoseLibraryException>(() => PoseLibrary.WriteEdit(variant, LibraryPath, "jump"));
+        Assert.True(PoseLibrary.WriteEdit(variant, LibraryPath, "jump", replace: true).ReplacedClip);
+    }
+
+    [Fact]
+    public void ReadingAMissingClipNamesTheClipsThere()
+    {
+        PoseLibrary.Write(BakeJump(), LibraryPath, ModelPath);
+
+        var missing = Assert.Throws<PoseLibraryException>(() => PoseLibrary.Read(LibraryPath, "hop"));
+
+        Assert.Contains("no clip 'hop'", missing.Message, StringComparison.Ordinal);
+        Assert.Contains("jump", missing.Message, StringComparison.Ordinal);
+        Assert.Throws<PoseLibraryException>(() => PoseLibrary.Read("Assets/Characters/none.mfres", "jump"));
+    }
+
+    [Fact]
     public void AClipTheBakerDidNotMakeIsNotReplacedSilently()
     {
         var library = new AnimationLibrary();

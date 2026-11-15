@@ -180,6 +180,9 @@ public sealed class HumanoidRig
     /// <summary>A position in the character's canonical space (metres, from the skeleton origin) in skeleton space.</summary>
     public Vector3 ToSkeletonSpace(Vector3 canonicalPosition) => Vector3.Transform(canonicalPosition, _c) / MetresPerUnit;
 
+    /// <summary>The inverse of <see cref="ToSkeletonSpace"/>: a skeleton-space position in the character's canonical space (metres).</summary>
+    public Vector3 ToCharacterSpace(Vector3 skeletonPosition) => Vector3.Transform(skeletonPosition, _cInverse) * MetresPerUnit;
+
     // The T-pose global rotation of a rig bone's parent (skeleton space): a mapped ancestor's C·K times the rest locals of
     // the unmapped bones below it, or the rest when no ancestor is mapped.
     private Quaternion ParentFrame(int index)

@@ -520,8 +520,16 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
     sparse and refinement keys, library writing and `.mfmeta` `libraries`; transform-track `Transitions` and
     `Animation.BakedHash` (G1a changes);
     importer appends linked libraries; unit tests.
-14. **G1.14 Describe and edits.** Canonical description, edit scripts (absolute, relative, scaled, range, insert,
-    arc), `BakedHash` guard; unit tests.
+14. ✅ **G1.14 Describe and edits.** (Built, [Animation and skinning → Describe and edit scripts](../animation.md#describe-and-edit-scripts-g1c).
+    Changes: effector positions are in character space (the space of IK `pos` targets) with heights above the rest
+    pose's lowest foot or toe; times keyed by only some tracks list their bones; an insert adds a key only to the tracks
+    the edit touches; a bone without a track gets one keyed at the edit and the key times just outside it; edits can
+    also set `ease` and `mirror`; edit IK is `"pin"` (hold where the clip had it before the edit, re-solving the whole
+    planted span around the edit) or a `pos` target, never `"release"`; unmapped bones are errors rather than folded;
+    an arc edit scales the hips keys inside the range above the take-off-to-landing line and needs such keys; an edit
+    keeps a hand-edited clip's stale `BakedHash` and `PoseLibrary.WriteEdit` always writes over its own base; text
+    output now, `--json` with `mfe` in G1.16.) Canonical description, edit scripts (absolute, relative, scaled, range,
+    insert, arc), `BakedHash` guard; unit tests.
 15. **G1.15 Checks.** `AnimationChecks` with every check in the table, tolerances, report model; unit tests.
 16. **G1.16 `mfe`.** `Tools/MainframeEngine.Cli`, `MfeCli`, `CommandLine`, project discovery, `anim
     rig/poses/bake/describe/check/list`, `--json`, `just mfe`; add to `MainframeEngine.slnx`; CLI tests.

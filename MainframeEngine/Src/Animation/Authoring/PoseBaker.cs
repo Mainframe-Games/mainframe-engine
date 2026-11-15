@@ -58,7 +58,7 @@ public static class PoseBaker
         }
     }
 
-    private static (HumanoidBone Upper, HumanoidBone Lower, HumanoidBone End, Vector3 Pole) Chain(IkEffector effector) => effector switch
+    internal static (HumanoidBone Upper, HumanoidBone Lower, HumanoidBone End, Vector3 Pole) Chain(IkEffector effector) => effector switch
     {
         IkEffector.LeftFoot => (HumanoidBone.LeftUpperLeg, HumanoidBone.LeftLowerLeg, HumanoidBone.LeftFoot, Vector3.UnitZ),
         IkEffector.RightFoot => (HumanoidBone.RightUpperLeg, HumanoidBone.RightLowerLeg, HumanoidBone.RightFoot, Vector3.UnitZ),
@@ -442,7 +442,7 @@ public static class PoseBaker
             foreach (var track in animation.Tracks)
             {
                 var name = track switch { Rotation3DTrack r => r.Bone, Position3DTrack p => p.Bone, _ => null };
-                if (name == bone && track.Times.Any(t => Math.Abs(t - time) < 1e-4))
+                if (name == bone && TrackKeys.Find(track.Times, time) >= 0)
                     return true;
             }
 
@@ -456,8 +456,8 @@ public static class PoseBaker
                 Insert(animation, rig.GetRigBone(bone), time, position: false);
         }
 
-        // Inserts the skeleton's current local value of `bone` at `time` into its track (every track of the clip gets the
-        // key time only where needed; tracks stay sorted and in one quaternion hemisphere).
+        // Sets the skeleton's current local value of `bone` as a key at `time` in its track (tracks stay sorted and in one
+        // quaternion hemisphere; the new key takes the ease of the segment it splits).
         private void Insert(Animation animation, int bone, double time, bool position)
         {
             var name = _skeleton.GetBoneName(bone);
@@ -465,44 +465,12 @@ public static class PoseBaker
             foreach (var track in animation.Tracks)
             {
                 if (track is Rotation3DTrack rotation && !position && rotation.Bone == name)
-                {
-                    var at = InsertIndex(rotation.Times, t);
-                    var value = _skeleton.GetBonePoseRotation(bone);
-                    if (at > 0 && Quaternion.Dot(value, rotation.Values[at - 1]) < 0f)
-                        value = -value;
-                    rotation.Times = [.. rotation.Times[..at], t, .. rotation.Times[at..]];
-                    rotation.Values = [.. rotation.Values[..at], value, .. rotation.Values[at..]];
-                    rotation.Transitions = InsertTransition(rotation.Transitions, at);
-                    // Keep the following key in the same hemisphere as the new one.
-                    if (at + 1 < rotation.Values.Length && Quaternion.Dot(rotation.Values[at + 1], value) < 0f)
-                        for (var i = at + 1; i < rotation.Values.Length; i++)
-                            rotation.Values[i] = -rotation.Values[i];
-                }
+                    TrackKeys.SetRotation(rotation, t, _skeleton.GetBonePoseRotation(bone));
                 else if (track is Position3DTrack positionTrack && position && positionTrack.Bone == name)
-                {
-                    var at = InsertIndex(positionTrack.Times, t);
-                    positionTrack.Times = [.. positionTrack.Times[..at], t, .. positionTrack.Times[at..]];
-                    positionTrack.Values = [.. positionTrack.Values[..at], _skeleton.GetBonePosePosition(bone), .. positionTrack.Values[at..]];
-                    positionTrack.Transitions = InsertTransition(positionTrack.Transitions, at);
-                }
+                    TrackKeys.SetPosition(positionTrack, t, _skeleton.GetBonePosePosition(bone));
             }
 
             animation.NotifyChanged();
-        }
-
-        private static int InsertIndex(float[] times, float t)
-        {
-            var at = 0;
-            while (at < times.Length && times[at] < t)
-                at++;
-            return at;
-        }
-
-        // The new key splits the segment before it: it takes that segment's ease.
-        private static float[] InsertTransition(float[] transitions, int at)
-        {
-            var ease = at > 0 && at - 1 < transitions.Length ? transitions[at - 1] : 1f;
-            return [.. transitions[..Math.Min(at, transitions.Length)], ease, .. transitions[Math.Min(at, transitions.Length)..]];
         }
 
         public (Vector3, Quaternion, Vector3)[] SavePose()
