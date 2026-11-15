@@ -248,11 +248,19 @@ public static class PoseBaker
 
                 foreach (var (effector, command) in key.Ik)
                     if (command.Kind == IkCommandKind.Target)
-                        Reach(effector, rig.ToSkeletonSpace(command.Target), null, $"keys[{k}] (t = {Seconds(key.Time)} s)");
+                    {
+                        // A target held from here (a landing) puts the foot or hand down as it is at rest (level),
+                        // unless the key gives the end bone's angles.
+                        var end = Chain(effector).End;
+                        Quaternion? endRotation = command.Pin && !key.Joints.ContainsKey(end)
+                            ? _skeleton.GetBoneGlobalRest(rig.GetRigBone(end)).Basis.GetRotation()
+                            : null;
+                        Reach(effector, rig.ToSkeletonSpace(command.Target), endRotation, $"keys[{k}] (t = {Seconds(key.Time)} s)");
+                    }
 
                 foreach (var (effector, command) in key.Ik)
                 {
-                    if (command.Kind != IkCommandKind.Pin)
+                    if (command is not ({ Kind: IkCommandKind.Pin } or { Kind: IkCommandKind.Target, Pin: true }))
                         continue;
                     var end = _skeleton.GetBoneGlobalPose(rig.GetRigBone(Chain(effector).End));
                     pins[effector] = new Pin(end.Origin, end.Basis.GetRotation());

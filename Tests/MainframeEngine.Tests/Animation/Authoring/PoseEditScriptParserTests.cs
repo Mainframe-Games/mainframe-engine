@@ -76,6 +76,7 @@ public class PoseEditScriptParserTests
     [InlineData("""{ "t": 0.1, "joints": { "LeftKnee": { "flex": 1 } } }""", "edits[0].joints.LeftKnee", "unknown bone")]
     [InlineData("""{ "t": 0.1, "joints": { "LeftLowerLeg": { "twist": "+=1" } } }""", "edits[0].joints.LeftLowerLeg", "hinge")]
     [InlineData("""{ "t": 0.1, "ik": { "leftFoot": "release" } }""", "edits[0].ik.leftFoot", "nothing to release")]
+    [InlineData("""{ "t": 0.1, "ik": { "leftFoot": { "pos": [0, 0, 0], "pin": true } } }""", "edits[0].ik.leftFoot.pin", "does not pin")]
     [InlineData("""{ "t": 0.1, "hips": { "y": 1 }, "bend": 3 }""", "edits[0].bend", "unknown property")]
     public void EditErrorsNameTheirPath(string edit, string path, string message)
     {

@@ -335,8 +335,10 @@ reads it (every error with its JSON path, unknown properties rejected) and `Pose
 
 - **Keys:** `t`, a named `pose` (the first key needs one; later keys start from the previous key), `hips`
   (`x/y/z/yaw/pitch/roll`), `joints` (any of `flex/abduct/twist` per bone; hinges flex only), `mirror` (left to right, or
-  right to left where only the right is given), `ik` (`"pin"`, `"release"`, `{ "pos": [x, y, z] }` in character space) and
-  `ease` (`linear`, `in`, `out`, `inOut` or a number: the `Transitions` value of the segment **after** the key).
+  right to left where only the right is given), `ik` (`"pin"`, `"release"`, `{ "pos": [x, y, z] }` in character space,
+  `{ "pos": [...], "pin": true }`: reach it, the foot or hand put down as at rest unless the key gives its angles, and
+  hold it like a pin; G1.19, for landings on exact spots) and `ease` (`linear`, `in`, `out`, `inOut` or a number: the
+  `Transitions` value of the segment **after** the key).
 - **Root:** `inPlace` (default) keeps the keys' hips offsets and ignores arcs, with a note; `motion` keeps horizontal
   offsets and adds arcs, for root motion with `RootMotionBone` = the hips (`PoseBakeResult.HipsBone`).
 - **Arcs** add `4k·u(1−u)` to the keyed hips height between `from` and `to`: `k = g·T²/8` from the project's gravity, or
@@ -422,6 +424,14 @@ the time range (consecutive failing samples merge), the subject, the worst value
 - An in-place walk cycle slides its planted foot by design (the body is what moves): expect `footSlide` warnings there.
 
 ## The `mfe` CLI
+
+The **`animate` skill** (`.claude/skills/animate/SKILL.md`, G1.19; game projects get the same file from the `mfgame`
+template) teaches Claude Code the loop below: rig once, write a pose script in its scratch space, bake, read the checks,
+render and look at the contact sheet, fix (at most five rounds), and change existing clips with `describe` and edit
+scripts, never `--replace` unasked. It also says where `mfe` is in the engine repository, in a game built against a
+checkout (`MainframeEnginePath`) and in a package game (an engine checkout with `--project`: the package does not carry
+`mfe` yet), and holds a reference of the script fields, the checks and motion notes, with a jump that passes every
+check.
 
 G1.16 ([animation authoring → The `mfe` CLI](future/animation-authoring.md#the-mfe-cli)): `Tools/MainframeEngine.Cli/`
 builds `mfe`, the engine/editor command-line tool; `anim` is its first command group. In this repo `just mfe …` runs it in

@@ -463,6 +463,9 @@ Work follows the [Mainframe workflow](https://github.com/Mainframe-Games/workflo
 `.agents/workflow.md`. `.agents/mainframe-workflow/` and the `mf-*` skills are a pinned copy: never edit them here, change
 the workflow repo and re-run its `sync.sh`. ADR 0233 records why.
 
+Animation clips for rigged humanoids are made with the `animate` skill (`.claude/skills/animate/`, G1c): pose scripts
+baked, checked and rendered by `just mfe anim …` (docs/design/animation.md#the-mfe-cli).
+
 ## Project memory
 
 These are not loaded automatically. Read them before starting work:

@@ -1,7 +1,7 @@
 # Proposal: Animation authoring (Claude-made clips, `mfe`, posing tools)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G1c authoring, G1d posing tools, G1e root
-motion, G1f auto-rigging and non-humanoid rigs) · **Status:** 🚧 accepted by the owner 2026-11-07 (ADR 0281); G1.12 and G1.13 built · **Depends on:**
+motion, G1f auto-rigging and non-humanoid rigs) · **Status:** 🚧 accepted by the owner 2026-11-07 (ADR 0281); G1c (G1.12–G1.19) built; G1d and G1f not started · **Depends on:**
 [Keyframe animation](../animation.md) (G1a `Animation`/`AnimationPlayer`, G1b `Skeleton3D`/`Skin`/skinning/import),
 [Asset pipeline](../asset-pipeline.md) (`.mfmeta` settings), [Editor](../editor.md) · **Related:**
 [Editor viewport tools](../editor.md#viewport-tools) (G7: Save as `.mfres`), [Physics](../physics.md) (`CharacterBody3D`),
@@ -561,8 +561,12 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
     no QA script: an editor QA script cannot write files from outside the editor mid-run, so `EditorReloadTests` cover the
     loop.) `ResourceReloader`, `ResourceLoader.GetCached/ReloadInPlace`, watcher paths,
     conflict notice, model `.mfmeta` reopen; `AnimationPlayer` inspector preview; editor tests; QA script.
-19. **G1.19 Skill and docs.** `.claude/skills/animate/SKILL.md` (engine and template), `AGENTS.md`, current-state doc,
-    `asset-pipeline.md`; an end-to-end run on the CC0 character recorded in the PR.
+19. ✅ **G1.19 Skill and docs.** (Built: `.claude/skills/animate/SKILL.md` and its template copy, [Animation and skinning
+    → The `mfe` CLI](../animation.md#the-mfe-cli). Changes: the end-to-end run added target-then-pin IK
+    (`{ "pos": [...], "pin": true }`) so a landing puts the feet back where the clip started; package games have no `mfe`
+    yet (the skill uses an engine checkout with `--project`); the current-state change is in the log's State changes,
+    as feature PRs never edit the state file.) `.claude/skills/animate/SKILL.md` (engine and template), `AGENTS.md`,
+    current-state doc, `asset-pipeline.md`; an end-to-end run on the CC0 character recorded in the PR.
 
 **G1e**
 

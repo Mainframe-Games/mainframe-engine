@@ -209,7 +209,12 @@ public static partial class PoseScriptParser
                     }
 
                     if (ReadIk(entry.Value, ikPath, errors) is { } command)
-                        ik[effector] = command;
+                    {
+                        if (command.Pin)
+                            errors.Add(new(ikPath + ".pin", "an edit reaches a target at the edited keys; it does not pin from there (pin with \"pin\" alone)"));
+                        else
+                            ik[effector] = command;
+                    }
                 }
             }
         }

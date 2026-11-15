@@ -327,7 +327,7 @@ public static partial class PoseScriptParser
                     return null;
                 }
 
-                Unknown(value, path, ["pos"], errors);
+                Unknown(value, path, ["pos", "pin"], errors);
                 if (!value.TryGetProperty("pos", out var pos) || pos.ValueKind != JsonValueKind.Array || pos.GetArrayLength() != 3 ||
                     pos.EnumerateArray().Any(e => e.ValueKind != JsonValueKind.Number))
                 {
@@ -336,9 +336,18 @@ public static partial class PoseScriptParser
                 }
 
                 var p = pos.EnumerateArray().Select(e => e.GetSingle()).ToArray();
-                return new IkCommand(IkCommandKind.Target, new Vector3(p[0], p[1], p[2]));
+                var hold = false;
+                if (value.TryGetProperty("pin", out var pinElement))
+                {
+                    if (pinElement.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                        hold = pinElement.GetBoolean();
+                    else
+                        errors.Add(new(path + ".pin", "must be true or false"));
+                }
+
+                return new IkCommand(IkCommandKind.Target, new Vector3(p[0], p[1], p[2]), hold);
             default:
-                errors.Add(new(path, "must be \"pin\", \"release\" or { \"pos\": [x, y, z] }"));
+                errors.Add(new(path, "must be \"pin\", \"release\" or { \"pos\": [x, y, z], \"pin\": true|false }"));
                 return null;
         }
     }
