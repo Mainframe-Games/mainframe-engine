@@ -415,6 +415,32 @@ the time range (consecutive failing samples merge), the subject, the worst value
 - `ToText()` prints a summary line, the findings (errors first) and the skipped checks.
 - An in-place walk cycle slides its planted foot by design (the body is what moves): expect `footSlide` warnings there.
 
+## The `mfe` CLI
+
+G1.16 ([animation authoring → The `mfe` CLI](future/animation-authoring.md#the-mfe-cli)): `Tools/MainframeEngine.Cli/`
+builds `mfe`, the engine/editor command-line tool; `anim` is its first command group. In this repo `just mfe …` runs it in
+the current directory; a game project runs `dotnet run --project <engine checkout>/Tools/MainframeEngine.Cli -c Release
+-- …`. `MfeCli.Run(args, output, error)` is the whole program (tests run it in-process).
+
+| Command | Does |
+|---|---|
+| `mfe anim rig <model> [--write-meta]` | The bone tree, the humanoid map (each bone's source and confidence), missing and unmapped bones, the rest pose (T/A) and proportions. `--write-meta` stores the map in the `.mfmeta` `humanoid` (`HumanoidMap.Store`). |
+| `mfe anim poses` | The named poses, the angle conventions, every canonical bone (required, hinge) with its limits. |
+| `mfe anim bake <script.json> [--replace] [--no-link] [--tolerance …]` | A pose script bakes (`PoseBaker`, `PoseLibrary.Write`, linking the library on the first bake); an edit script (`base` + `edits`) edits (`PoseEditor`, `WriteEdit`). Prints the tracks and key counts, the notes, the checks and how to play the clip. |
+| `mfe anim describe <library> <clip> --model <m> [--times 0.2,0.4]` | `ClipDescriber` in text. |
+| `mfe anim check <library> <clip> --model <m> [--root inPlace\|motion] [--start <pose>] [--end <pose>] [--tolerance …]` | `AnimationChecks`. |
+| `mfe anim list <library>` | Each clip's length, loop, tracks, keys and whether it is an untouched bake. |
+
+- **Project:** `--project <dir>`, else the nearest `project.mfproj` above the working directory. A run points
+  `ContentPaths.ProjectDirectory` and `AssetDatabase.Current` at it and restores both. Models and libraries are project
+  paths (`Assets/…`); the script is a file path (it lives in the agent's scratch space, never in the project). Arcs and
+  the physics check use the length of the project's `physics3D.gravity`.
+- **Output:** text by default; `--json` prints one JSON document with the same data.
+- **Exit codes:** 0 ok; 1 the checks found errors (a bake still writes its clip, so it can be edited) or a command
+  failed; 2 usage or input errors: a script error (each with its JSON path), a missing file or clip, a refused
+  replace. Nothing is written on 2.
+- Unknown options are errors; `--tolerance` takes `name=value` pairs (repeatable, comma-separated).
+
 ## Guide
 
 [Getting started → Animate a character](../getting-started.md#animate-a-character) walks through exporting from
@@ -443,7 +469,9 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   `PoseEditorTests` (only named keys change, inserts, new tracks, hand-placed keys kept, eases, arcs ×1.3 and absolute,
   pinned feet holding when the hips go lower, IK targets, the `BakedHash` rules, apply errors) and `AnimationChecksTests`
   (a clean squat passes; the G1.13 test jump's real problems are found; a clip built to break each check reports it;
-  tolerances move the thresholds) on the test character.
+  tolerances move the thresholds) on the test character; `MfeCliTests` runs `mfe anim` in-process on a temp project (help
+  and usage errors, rig and `--write-meta`, poses, bake with links and checks, exit 1 on check errors and 2 on script
+  errors, the replace guard, an edit script, describe and check with options, JSON output, restored globals).
 - **Editor:** `AnimationNodesTests` (warnings, icons), `AnimationEditorTests` (every undo action, key buttons and K,
   drags with snap and cancel, rubber band, method and audio keys, preview capture and restore, saving while previewing),
   `TimelineTests` (zoom around the mouse, ruler steps); the song tab's tests run on the shared timeline.

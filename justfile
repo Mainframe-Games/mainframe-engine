@@ -310,6 +310,13 @@ format:
 format-check:
     dotnet format {{solution}} --verify-no-changes --exclude Plugins/Spine
 
+# --- mfe, the engine/editor CLI (docs/design/animation.md#the-mfe-cli) ---------------------------------------------
+# mfe in the current directory (it finds the nearest project.mfproj, or takes --project <dir>): `just mfe anim poses`,
+# `just mfe anim bake jump.json --project Examples/Demo`
+[no-cd]
+mfe *args:
+    @dotnet run --project "{{justfile_directory()}}/Tools/MainframeEngine.Cli" -c Release -- {{args}}
+
 # --- Localization (docs/design/localization.md) -------------------------------------------------------------------
 # The Demo's catalogs: Examples/Demo/Assets/locale/messages.pot and <locale>/LC_MESSAGES/messages.po|.mo.
 # (Tests/Assets/locale is the render tests' own Spanish catalog; it is not managed by these recipes.)

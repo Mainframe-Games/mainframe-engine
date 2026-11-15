@@ -45,6 +45,11 @@
     <ProjectReference Include="..\..\Tools\MainframeEngine.Symbolicate\MainframeEngine.Symbolicate.csproj" />
   </ItemGroup>
 
+  <!-- G1c: mfe (in-process CLI). -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Tools\MainframeEngine.Cli\MainframeEngine.Cli.csproj" />
+  </ItemGroup>
+
   <!-- M9: mf-l10n (in-process CLI, .po/.mo, extractors) and its fixture project (data, never compiled here). -->
   <ItemGroup>
     <ProjectReference Include="..\..\Tools\MainframeEngine.L10n\MainframeEngine.L10n.csproj" />
